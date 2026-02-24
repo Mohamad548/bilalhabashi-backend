@@ -59,9 +59,9 @@
       "monthlyAmount": 100000,
       "status": "active",
       "createdAt": "2026-02-21T22:01:59.493Z",
-      "loanAmount": 10000000,
-      "deposit": 241200000,
-      "loanBalance": 9000000,
+      "loanAmount": 0,
+      "deposit": 0,
+      "loanBalance": 0,
       "telegramChatId": "5042926113"
     },
     {
@@ -78,79 +78,8 @@
       "loanBalance": 0
     }
   ],
-  "payments": [
-    {
-      "id": 1,
-      "memberId": "nrZUft4",
-      "createdAt": "2026-02-24T22:13:46.726Z",
-      "receiptImagePath": "receipts/1771971195342.jpg",
-      "amount": 20000000,
-      "date": "۱۴۰۴-۱۲-۰۵",
-      "type": "contribution",
-      "note": "واریز از طریق رسید تلگرام (تایید ادمین)"
-    },
-    {
-      "id": 2,
-      "memberId": "nrZUft4",
-      "createdAt": "2026-02-24T22:15:53.589Z",
-      "receiptImagePath": "receipts/1771971340432.jpg",
-      "amount": 1000000,
-      "date": "۱۴۰۴-۱۲-۰۵",
-      "type": "contribution",
-      "note": "واریز از طریق رسید تلگرام (تایید ادمین)"
-    },
-    {
-      "id": 3,
-      "memberId": "nrZUft4",
-      "createdAt": "2026-02-24T22:18:02.298Z",
-      "receiptImagePath": "receipts/1771971463970.jpg",
-      "amount": 20000000,
-      "date": "۱۴۰۴-۱۲-۰۴",
-      "type": "contribution",
-      "note": "واریز از طریق رسید تلگرام (تایید ادمین)"
-    },
-    {
-      "id": 4,
-      "memberId": "nrZUft4",
-      "createdAt": "2026-02-24T22:22:21.034Z",
-      "receiptImagePath": "receipts/1771971720495.jpg",
-      "amount": 200000000,
-      "date": "۱۴۰۴-۱۲-۱۰",
-      "type": "contribution",
-      "note": "واریز از طریق رسید تلگرام (تایید ادمین)"
-    },
-    {
-      "id": 5,
-      "memberId": "nrZUft4",
-      "createdAt": "2026-02-24T22:23:33.143Z",
-      "receiptImagePath": "receipts/1771971788285.jpg",
-      "amount": 1000000,
-      "date": "۱۴۰۴-۱۲-۰۶",
-      "type": "repayment",
-      "note": "واریز از طریق رسید تلگرام (تایید ادمین) — قسط"
-    },
-    {
-      "id": 6,
-      "memberId": "nrZUft4",
-      "createdAt": "2026-02-24T22:23:33.143Z",
-      "receiptImagePath": "receipts/1771971788285.jpg",
-      "amount": 200000,
-      "date": "۱۴۰۴-۱۲-۰۶",
-      "type": "contribution",
-      "note": "واریز از طریق رسید تلگرام (تایید ادمین) — سپرده"
-    }
-  ],
-  "loans": [
-    {
-      "memberId": "nrZUft4",
-      "amount": 10000000,
-      "date": "۱۴۰۴-۱۲-۰۶",
-      "dueMonths": 10,
-      "status": "active",
-      "createdAt": "2026-02-24T22:22:56.625Z",
-      "id": 1
-    }
-  ],
+  "payments": [],
+  "loans": [],
   "fundLog": [],
   "fund": [
     {
@@ -159,51 +88,5 @@
     }
   ],
   "loanRequests": [],
-  "receiptSubmissions": [
-    {
-      "id": "1771971195342",
-      "memberId": "nrZUft4",
-      "memberName": "محمد محمودی",
-      "imagePath": "receipts/1771971195342.jpg",
-      "status": "approved",
-      "createdAt": "2026-02-24T22:13:15.818Z",
-      "approvedAt": "2026-02-24T22:13:46.726Z"
-    },
-    {
-      "id": "1771971340432",
-      "memberId": "nrZUft4",
-      "memberName": "محمد محمودی",
-      "imagePath": "receipts/1771971340432.jpg",
-      "status": "approved",
-      "createdAt": "2026-02-24T22:15:40.937Z",
-      "approvedAt": "2026-02-24T22:15:53.589Z"
-    },
-    {
-      "id": "1771971463970",
-      "memberId": "nrZUft4",
-      "memberName": "محمد محمودی",
-      "imagePath": "receipts/1771971463970.jpg",
-      "status": "approved",
-      "createdAt": "2026-02-24T22:17:44.422Z",
-      "approvedAt": "2026-02-24T22:18:02.298Z"
-    },
-    {
-      "id": "1771971720495",
-      "memberId": "nrZUft4",
-      "memberName": "محمد محمودی",
-      "imagePath": "receipts/1771971720495.jpg",
-      "status": "approved",
-      "createdAt": "2026-02-24T22:22:00.991Z",
-      "approvedAt": "2026-02-24T22:22:21.034Z"
-    },
-    {
-      "id": "1771971788285",
-      "memberId": "nrZUft4",
-      "memberName": "محمد محمودی",
-      "imagePath": "receipts/1771971788285.jpg",
-      "status": "approved",
-      "createdAt": "2026-02-24T22:23:08.815Z",
-      "approvedAt": "2026-02-24T22:23:33.143Z"
-    }
-  ]
+  "receiptSubmissions": []
 }

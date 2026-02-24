@@ -11,6 +11,7 @@ const loansGuard = require('./middleware/loansGuard');
 const authRoutes = require('./routes/auth');
 const telegramRoutes = require('./routes/telegram');
 const receiptSubmissionsRoutes = require('./routes/receiptSubmissions');
+const resetDbRoutes = require('./routes/resetDb');
 
 const app = express();
 
@@ -25,6 +26,7 @@ app.use('/uploads', express.static(uploadsDir));
 app.use('/api', authRoutes);
 app.use('/api', telegramRoutes);
 app.use('/api', receiptSubmissionsRoutes);
+app.use('/api', resetDbRoutes);
 
 app.post('/api/loans', loansGuard, (req, res, next) => next());
 
