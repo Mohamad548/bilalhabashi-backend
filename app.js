@@ -124,6 +124,9 @@ app.post('/api/payments', async (req, res) => {
             .then(() => console.log('[Telegram/چت-مدیر] اعلان پرداخت دستی به چت مدیر ارسال شد.'))
             .catch((err) => {
               console.error('[Telegram/چت-مدیر] خطا در ارسال اعلان پرداخت دستی به چت مدیر:', err.message);
+              if (err.message && err.message.includes('chat not found')) {
+                console.error('[Telegram/چت-مدیر] راهنما: مدیر باید یک بار ربات را در تلگرام باز کند و /start بزند تا ربات بتواند به او پیام بفرستد.');
+              }
             });
         } else if (!notifyTarget) {
           console.log('[Telegram/چت-مدیر] چت مدیر اصلی (notifyTarget) خالی است؛ اعلان پرداخت دستی به مدیر ارسال نمی‌شود.');

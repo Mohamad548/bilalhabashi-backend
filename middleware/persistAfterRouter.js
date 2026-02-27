@@ -67,6 +67,9 @@ function persistAfterRouter(req, res, next) {
                 .then(() => console.log('[Telegram/چت-مدیر] ✓ اعلان درخواست وام با موفقیت به چت مدیر ارسال شد.'))
                 .catch((err) => {
                   console.error('[Telegram/چت-مدیر] ✗ خطا در ارسال به چت مدیر:', err.message, '| response=', err.response && err.response.body ? JSON.stringify(err.response.body) : '—');
+                  if (err.message && err.message.includes('chat not found')) {
+                    console.error('[Telegram/چت-مدیر] راهنما: مدیر باید یک بار ربات را در تلگرام باز کند و /start بزند تا ربات بتواند به او پیام بفرستد.');
+                  }
                 });
             } else if (!notifyTarget) {
               console.log('[Telegram/چت-مدیر] چت مدیر اصلی (notifyTarget) خالی است؛ اعلان ارسال نمی‌شود. در تنظیمات «آیدی/یوزرنیم چت مدیر اصلی» را پر کنید (مثلاً @mahmodi298 یا عدد Chat ID).');

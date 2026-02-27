@@ -242,6 +242,9 @@ router.post('/receipt-submissions/:id/approve', async (req, res) => {
             .then(() => console.log('[Telegram/چت-مدیر] اعلان پرداخت به چت مدیر ارسال شد.'))
             .catch((err) => {
               console.error('[Telegram/چت-مدیر] خطا در ارسال اعلان پرداخت به چت مدیر:', err.message);
+              if (err.message && err.message.includes('chat not found')) {
+                console.error('[Telegram/چت-مدیر] راهنما: مدیر باید یک بار ربات را در تلگرام باز کند و /start بزند تا ربات بتواند به او پیام بفرستد.');
+              }
             });
         }
       } else if (!notifyTarget) {

@@ -72,6 +72,61 @@ router.get('/telegram/check', (req, res) => {
   reqTelegram.end();
 });
 
+// لینک ربات برای دکمه «برقراری با تلگرام»
+router.get('/telegram/bot-link', (req, res) => {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) {
+    return res.json({ ok: false, message: 'توکن ربات تنظیم نشده است.' });
+  }
+  const agent = createTelegramProxyAgent(getTelegramProxyUrl());
+  const url = new URL(`https://api.telegram.org/bot${token}/getMe`);
+  const options = { hostname: url.hostname, path: url.pathname + url.search, method: 'GET' };
+  if (agent) options.agent = agent;
+  const reqTelegram = https.request(options, (apiRes) => {
+    let data = '';
+    apiRes.on('data', (chunk) => { data += chunk; });
+    apiRes.on('end', () => {
+      try {
+        const json = JSON.parse(data);
+        if (json.ok && json.result && json.result.username) {
+          return res.json({ ok: true, url: `https://t.me/${json.result.username}` });
+        }
+        return res.json({ ok: false, message: json.description || 'نامعتبر' });
+      } catch (e) {
+        return res.json({ ok: false, message: 'خطا در خواندن پاسخ' });
+      }
+    });
+  });
+  reqTelegram.on('error', (err) => res.json({ ok: false, message: err.message }));
+  reqTelegram.end();
+});
+
+// تست اتصال چت مدیر اصلی با ربات (ارسال پیام تست + لاگ)
+router.post('/telegram/test-admin-chat', async (req, res) => {
+  const target = (req.body && req.body.notifyTarget != null ? String(req.body.notifyTarget).trim() : (db.telegramSettings && db.telegramSettings.notifyTarget) ? String(db.telegramSettings.notifyTarget).trim() : '');
+  console.log('[Telegram/چت-مدیر] درخواست تست اتصال چت مدیر؛ target=', target ? `"${target}"` : 'خالی');
+  if (!target) {
+    console.log('[Telegram/چت-مدیر] تست اتصال لغو شد: چت مدیر اصلی خالی است.');
+    return res.status(400).json({ success: false, error: 'چت مدیر اصلی خالی است. ابتدا آیدی یا یوزرنیم را وارد کنید.' });
+  }
+  if (!telegramBot) {
+    console.log('[Telegram/چت-مدیر] تست اتصال لغو شد: ربات تلگرام در دسترس نیست.');
+    return res.status(503).json({ success: false, error: 'ربات تلگرام در سرور فعال نیست.' });
+  }
+  const testMessage = '✅ اتصال با ربات برقرار است. این پیام تست از پنل ادمین است.';
+  try {
+    await telegramBot.sendMessage(String(target), testMessage);
+    console.log('[Telegram/چت-مدیر] تست اتصال موفق؛ پیام تست به چت مدیر ارسال شد. (target=', target, ')');
+    return res.json({ success: true, message: 'پیام تست به چت مدیر ارسال شد. اگر دریافت کردید، اتصال برقرار است.' });
+  } catch (err) {
+    console.error('[Telegram/چت-مدیر] تست اتصال ناموفق؛ خطا:', err.message);
+    if (err.message && err.message.includes('chat not found')) {
+      console.error('[Telegram/چت-مدیر] راهنما: مدیر باید یک بار ربات را در تلگرام باز کند و /start بزند.');
+    }
+    return res.status(400).json({ success: false, error: err.message || 'ارسال ناموفق' });
+  }
+});
+
 router.post('/loanRequests/:id/notifyRejection', (req, res) => {
   const id = req.params.id;
   const reason = (req.body && req.body.reason) ? String(req.body.reason).trim() : '';
