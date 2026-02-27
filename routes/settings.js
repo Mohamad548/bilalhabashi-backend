@@ -33,7 +33,12 @@ router.post('/admin/telegram-settings', async (req, res) => {
   const adminTarget = body.adminTarget != null ? String(body.adminTarget).trim() : '';
   const adminChannelTarget = body.adminChannelTarget != null ? String(body.adminChannelTarget).trim() : '';
   const adminGroupTarget = body.adminGroupTarget != null ? String(body.adminGroupTarget).trim() : '';
-  const notifyTarget = body.notifyTarget != null ? String(body.notifyTarget).trim() : '';
+  let notifyTarget = body.notifyTarget != null ? String(body.notifyTarget).trim() : '';
+  // اگر کاربر بعد از لینک (برقراری با تلگرام) بدون رفرش ذخیره کند، چت مدیر را خالی نکن
+  if (!notifyTarget && db.telegramSettings && (db.telegramSettings.notifyTarget || '').trim()) {
+    notifyTarget = String(db.telegramSettings.notifyTarget).trim();
+    console.log('[settings] چت مدیر اصلی از مقدار قبلی (لینک) حفظ شد؛ notifyTarget=', notifyTarget ? 'تنظیم‌شده' : 'خالی');
+  }
   const sendReceiptMember = body.sendReceiptMember !== false;
   const sendReceiptGroup = body.sendReceiptGroup !== false;
   const sendManualPaymentGroup = body.sendManualPaymentGroup !== false;

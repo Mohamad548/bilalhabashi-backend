@@ -1,6 +1,6 @@
 const express = require('express');
 const https = require('https');
-const { db } = require('../config');
+const { db, persistDb, usePg } = require('../config');
 const { getTelegramProxyUrl, createTelegramProxyAgent } = require('../lib/telegramProxy');
 const { formatNumTelegram } = require('../shamsiUtils');
 
@@ -89,7 +89,8 @@ router.get('/telegram/bot-link', (req, res) => {
       try {
         const json = JSON.parse(data);
         if (json.ok && json.result && json.result.username) {
-          return res.json({ ok: true, url: `https://t.me/${json.result.username}` });
+          const url = `https://t.me/${json.result.username}`;
+          return res.json({ ok: true, url, linkAdmin: `${url}?start=admin` });
         }
         return res.json({ ok: false, message: json.description || 'نامعتبر' });
       } catch (e) {
@@ -99,6 +100,48 @@ router.get('/telegram/bot-link', (req, res) => {
   });
   reqTelegram.on('error', (err) => res.json({ ok: false, message: err.message }));
   reqTelegram.end();
+});
+
+// اتصال چت مدیر از داخل ربات (با /start admin) — فقط از localhost یا با سکرت
+router.post('/telegram/link-admin', async (req, res) => {
+  const remote = req.ip || req.socket?.remoteAddress || '';
+  const secret = (req.headers['x-internal-secret'] || '').trim();
+  const allowed = remote === '127.0.0.1' || remote === '::1' || remote === '::ffff:127.0.0.1' ||
+    (process.env.TELEGRAM_LINK_SECRET && secret === process.env.TELEGRAM_LINK_SECRET);
+  if (!allowed) {
+    console.log('[Telegram/چت-مدیر] link-admin رد شد؛ IP/سکرت نامعتبر. remote=', remote);
+    return res.status(403).json({ success: false, error: 'غیرمجاز' });
+  }
+  const chatId = req.body && req.body.chatId != null ? String(req.body.chatId).trim() : '';
+  if (!chatId) {
+    return res.status(400).json({ success: false, error: 'chatId الزامی است.' });
+  }
+  if (!db.telegramSettings) db.telegramSettings = {};
+  db.telegramSettings.notifyTarget = chatId;
+  try {
+    if (usePg) await persistDb();
+    else persistDb();
+    console.log('[Telegram/چت-مدیر] چت مدیر با موفقیت ثبت شد؛ notifyTarget=', chatId);
+    return res.json({ success: true, notifyTarget: chatId });
+  } catch (err) {
+    console.error('[Telegram/چت-مدیر] خطا در ذخیره link-admin:', err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// قطع ارتباط چت مدیر (از پنل)
+router.post('/telegram/unlink-admin', async (req, res) => {
+  if (!db.telegramSettings) db.telegramSettings = {};
+  db.telegramSettings.notifyTarget = '';
+  try {
+    if (usePg) await persistDb();
+    else persistDb();
+    console.log('[Telegram/چت-مدیر] چت مدیر قطع شد (unlink-admin).');
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('[Telegram/چت-مدیر] خطا در unlink-admin:', err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // تست اتصال چت مدیر اصلی با ربات (ارسال پیام تست + لاگ)
