@@ -104,7 +104,9 @@ router.get('/telegram/bot-link', (req, res) => {
 // تست اتصال چت مدیر اصلی با ربات (ارسال پیام تست + لاگ)
 router.post('/telegram/test-admin-chat', async (req, res) => {
   const target = (req.body && req.body.notifyTarget != null ? String(req.body.notifyTarget).trim() : (db.telegramSettings && db.telegramSettings.notifyTarget) ? String(db.telegramSettings.notifyTarget).trim() : '');
-  console.log('[Telegram/چت-مدیر] درخواست تست اتصال چت مدیر؛ target=', target ? `"${target}"` : 'خالی');
+  const isUsername = target.startsWith('@');
+  const isNumeric = /^\d+$/.test(target.replace(/\s/g, ''));
+  console.log('[Telegram/چت-مدیر] درخواست تست اتصال چت مدیر؛ target=', target ? `"${target}"` : 'خالی', '| نوع=', isUsername ? 'یوزرنیم' : isNumeric ? 'عدد' : 'سایر', '| طول=', target.length);
   if (!target) {
     console.log('[Telegram/چت-مدیر] تست اتصال لغو شد: چت مدیر اصلی خالی است.');
     return res.status(400).json({ success: false, error: 'چت مدیر اصلی خالی است. ابتدا آیدی یا یوزرنیم را وارد کنید.' });
@@ -115,16 +117,20 @@ router.post('/telegram/test-admin-chat', async (req, res) => {
   }
   const testMessage = '✅ اتصال با ربات برقرار است. این پیام تست از پنل ادمین است.';
   try {
+    console.log('[Telegram/چت-مدیر] در حال ارسال پیام تست به تلگرام، chat_id=', target);
     await telegramBot.sendMessage(String(target), testMessage);
     console.log('[Telegram/چت-مدیر] تست اتصال موفق؛ پیام تست به چت مدیر ارسال شد. (target=', target, ')');
     return res.json({ success: true, message: 'پیام تست به چت مدیر ارسال شد. اگر دریافت کردید، اتصال برقرار است.' });
   } catch (err) {
+    const responseBody = err.response && typeof err.response.body === 'object' ? JSON.stringify(err.response.body) : (err.response && err.response.body) ? String(err.response.body).slice(0, 200) : '—';
     console.error('[Telegram/چت-مدیر] تست اتصال ناموفق؛ خطا:', err.message);
+    console.error('[Telegram/چت-مدیر] پاسخ خام تلگرام (response.body):', responseBody);
     if (err.message && err.message.includes('chat not found')) {
       console.error('[Telegram/چت-مدیر] راهنما: مدیر باید یک بار ربات را در تلگرام باز کند و /start بزند.');
+      console.error('[Telegram/چت-مدیر] اگر با یوزرنیم (@...) کار نکرد، در ربات /start بزنید؛ ربات «شماره چت» را نشان می‌دهد. آن عدد را در فیلد چت مدیر اصلی بگذارید.');
       return res.status(400).json({
         success: false,
-        error: 'چت پیدا نشد. مدیر باید یک بار دکمه «برقراری با تلگرام» را بزند، ربات را باز کند و /start بزند؛ بعد دوباره «بررسی اتصال» را بزند.',
+        error: 'چت پیدا نشد. اگر با یوزرنیم (@...) کار نکرد، در ربات /start بزنید؛ در پیام خوش‌آمد ربات «شماره چت شما» را ببینید و همان عدد را اینجا وارد کنید.',
         errorCode: 'chat_not_found',
       });
     }
