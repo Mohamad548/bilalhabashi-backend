@@ -20,6 +20,10 @@ function persistAfterRouter(req, res, next) {
         body &&
         body.telegramChatId != null;
 
+      if (req.method === 'POST' && path === '/api/loanRequests') {
+        console.log('[Telegram] POST /api/loanRequests پاسخ داده شد؛ telegramChatId=', body && body.telegramChatId != null ? body.telegramChatId : 'ندارد', ', isNewLoanRequest=', isNewLoanRequest, ', telegramBot=', !!telegramBot);
+      }
+
       if (isNewLoanRequest && telegramBot) {
         const telegramSettings = db.telegramSettings || {};
         const userName = body.userName ? `@${body.userName}` : 'ناشناس';

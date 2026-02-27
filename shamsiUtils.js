@@ -57,7 +57,7 @@ function daysInMonthShamsi(y, m) {
 /** تبدیل تاریخ میلادی به شمسی (تقریبی - برای مقایسه روز) */
 function gregorianToShamsi(gregorianDate) {
   const g = new Date(gregorianDate);
-  const gy = g.getFullYear();
+  let gy = g.getFullYear();
   const gm = g.getMonth() + 1;
   const gd = g.getDate();
   let g_d_n = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334][gm - 1] + gd;
