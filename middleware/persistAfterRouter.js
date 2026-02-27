@@ -48,9 +48,14 @@ function persistAfterRouter(req, res, next) {
               });
             }
             if (notifyTarget && telegramSettings.sendLoanRequestToAdmin !== false) {
-              telegramBot.sendMessage(String(notifyTarget), textForAdmin).catch((err) => {
-                console.error('[Telegram] خطا در ارسال اعلان درخواست وام به چت مدیر:', err.message);
-              });
+              console.log('[Telegram/چت-مدیر] ارسال اعلان درخواست وام به چت مدیر اصلی، target:', notifyTarget.length > 4 ? notifyTarget.slice(0, 2) + '...' + notifyTarget.slice(-2) : '***');
+              telegramBot.sendMessage(String(notifyTarget), textForAdmin)
+                .then(() => console.log('[Telegram/چت-مدیر] اعلان درخواست وام به چت مدیر ارسال شد.'))
+                .catch((err) => {
+                  console.error('[Telegram/چت-مدیر] خطا در ارسال اعلان درخواست وام به چت مدیر:', err.message);
+                });
+            } else if (!notifyTarget) {
+              console.log('[Telegram/چت-مدیر] چت مدیر اصلی (notifyTarget) خالی است؛ اعلان درخواست وام به مدیر ارسال نمی‌شود.');
             }
           });
         }

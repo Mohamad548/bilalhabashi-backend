@@ -235,10 +235,15 @@ router.post('/receipt-submissions/:id/approve', async (req, res) => {
       ? formatTemplate(adminTpl, ctx)
       : ((sendReceiptGroup && textForGroup) ? textForGroup : (sendReceiptMember && textForMember ? textForMember : null));
     if (textForAdmin) {
-      telegramBot.sendMessage(String(notifyTarget), textForAdmin).catch((err) => {
-        console.error('[Telegram] خطا در ارسال اعلان پرداخت به چت مدیر:', err.message);
-      });
+      console.log('[Telegram/چت-مدیر] ارسال اعلان پرداخت (رسید) به چت مدیر اصلی، target:', notifyTarget.length > 4 ? notifyTarget.slice(0, 2) + '...' + notifyTarget.slice(-2) : '***');
+      telegramBot.sendMessage(String(notifyTarget), textForAdmin)
+        .then(() => console.log('[Telegram/چت-مدیر] اعلان پرداخت به چت مدیر ارسال شد.'))
+        .catch((err) => {
+          console.error('[Telegram/چت-مدیر] خطا در ارسال اعلان پرداخت به چت مدیر:', err.message);
+        });
     }
+  } else if (telegramBot && !notifyTarget) {
+    console.log('[Telegram/چت-مدیر] چت مدیر اصلی (notifyTarget) خالی است؛ اعلان پرداخت به مدیر ارسال نمی‌شود.');
   }
   res.json({ success: true, message: 'تایید شد.' });
 });

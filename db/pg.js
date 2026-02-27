@@ -106,6 +106,18 @@ function rowToReceiptSubmission(r) {
 }
 
 /**
+ * ایجاد جدول telegram_settings در صورت نبودن و برگرداندن تنظیمات
+ */
+async function ensureTelegramSettingsTable(client) {
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS ${SCHEMA}.telegram_settings (
+      id int PRIMARY KEY DEFAULT 1,
+      data jsonb NOT NULL DEFAULT '{}'
+    )
+  `);
+}
+
+/**
  * بارگذاری کل دیتا از PostgreSQL و برگرداندن آبجکت به شکل db (مثل db.json)
  */
 async function loadFromPg() {
@@ -114,7 +126,9 @@ async function loadFromPg() {
 
   const client = await p.connect();
   try {
-    const [usersRes, membersRes, paymentsRes, loansRes, fundLogRes, fundRes, loanRequestsRes, receiptSubmissionsRes] = await Promise.all([
+    await ensureTelegramSettingsTable(client);
+
+    const [usersRes, membersRes, paymentsRes, loansRes, fundLogRes, fundRes, loanRequestsRes, receiptSubmissionsRes, telegramRes] = await Promise.all([
       client.query(`SELECT id, username, password, name, role, avatar FROM ${SCHEMA}.users ORDER BY id`),
       client.query(`SELECT * FROM ${SCHEMA}.members ORDER BY id`),
       client.query(`SELECT * FROM ${SCHEMA}.payments ORDER BY id`),
@@ -123,6 +137,7 @@ async function loadFromPg() {
       client.query(`SELECT * FROM ${SCHEMA}.fund ORDER BY id`),
       client.query(`SELECT * FROM ${SCHEMA}.loan_requests ORDER BY id`),
       client.query(`SELECT * FROM ${SCHEMA}.receipt_submissions ORDER BY id`),
+      client.query(`SELECT data FROM ${SCHEMA}.telegram_settings WHERE id = 1`),
     ]);
 
     const users = usersRes.rows.map((r) => ({
@@ -140,6 +155,9 @@ async function loadFromPg() {
     const fund = fundRes.rows.map(rowToFund);
     const loanRequests = loanRequestsRes.rows.map(rowToLoanRequest);
     const receiptSubmissions = receiptSubmissionsRes.rows.map(rowToReceiptSubmission);
+    const telegramSettings = telegramRes.rows[0] && telegramRes.rows[0].data
+      ? telegramRes.rows[0].data
+      : {};
 
     return {
       users,
@@ -150,6 +168,7 @@ async function loadFromPg() {
       fund: fund.length ? fund : [{ id: 'main', cashBalance: 0 }],
       loanRequests,
       receiptSubmissions,
+      telegramSettings,
     };
   } finally {
     client.release();
@@ -281,6 +300,14 @@ async function saveToPg(db) {
         ]
       );
     }
+
+    // ذخیره تنظیمات تلگرام (چت مدیر اصلی و ...)
+    const telegramSettings = db.telegramSettings && typeof db.telegramSettings === 'object' ? db.telegramSettings : {};
+    await client.query(
+      `INSERT INTO ${SCHEMA}.telegram_settings (id, data) VALUES (1, $1::jsonb)
+       ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`,
+      [JSON.stringify(telegramSettings)]
+    );
 
     // به‌روزرسانی سکانس‌ها برای idهای عددی
     const seqs = [

@@ -144,11 +144,13 @@ router.post('/loanRequests/broadcastWaiting', async (req, res) => {
 
   const listBody = lines.join('\n');
   const customTpl = (telegramSettings.broadcastWaitingTemplate || '').trim();
-  const text = customTpl
-    ? customTpl
-        .replace(/\{list\}/g, listBody)
-        .replace(/\{count\}/g, String(approved.length))
-    : '📢 لیست افراد در انتظار وام (درخواست‌های تأیید‌شده):\n\n' + listBody;
+  // اگر کاربر متن دلخواه وارد کرده باشد فقط همان ارسال می‌شود؛ متن پیش‌فرض «لیست افراد در انتظار وام» فقط وقتی ارسال می‌شود که قالب خالی باشد.
+  const text =
+    customTpl.length > 0
+      ? customTpl
+          .replace(/\{list\}/g, listBody)
+          .replace(/\{count\}/g, String(approved.length))
+      : '📢 لیست افراد در انتظار وام (درخواست‌های تأیید‌شده):\n\n' + listBody;
 
   // اگر از کلاینت target ارسال شده باشد، مستقیماً از آن استفاده می‌کنیم؛ وگرنه از تنظیمات تلگرام (کانال/گروه) یا env
   const bodyTarget = req.body && req.body.target ? String(req.body.target).trim() : '';

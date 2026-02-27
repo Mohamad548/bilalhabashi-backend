@@ -118,9 +118,14 @@ app.post('/api/payments', async (req, res) => {
         const textForAdmin = adminTpl
           ? formatTemplate(adminTpl, { memberName, amount: amountFa, date: dateStr })
           : text;
-        telegramBot.sendMessage(String(notifyTarget), textForAdmin).catch((err) => {
-          console.error('[Telegram] خطا در ارسال اعلان پرداخت به چت مدیر:', err.message);
-        });
+        console.log('[Telegram/چت-مدیر] ارسال اعلان پرداخت دستی به چت مدیر اصلی، target:', notifyTarget.length > 4 ? notifyTarget.slice(0, 2) + '...' + notifyTarget.slice(-2) : '***');
+        telegramBot.sendMessage(String(notifyTarget), textForAdmin)
+          .then(() => console.log('[Telegram/چت-مدیر] اعلان پرداخت دستی به چت مدیر ارسال شد.'))
+          .catch((err) => {
+            console.error('[Telegram/چت-مدیر] خطا در ارسال اعلان پرداخت دستی به چت مدیر:', err.message);
+          });
+      } else if (!notifyTarget) {
+        console.log('[Telegram/چت-مدیر] چت مدیر اصلی (notifyTarget) خالی است؛ اعلان پرداخت دستی به مدیر ارسال نمی‌شود.');
       }
     }
   }
