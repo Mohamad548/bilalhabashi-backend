@@ -122,6 +122,11 @@ router.post('/telegram/test-admin-chat', async (req, res) => {
     console.error('[Telegram/چت-مدیر] تست اتصال ناموفق؛ خطا:', err.message);
     if (err.message && err.message.includes('chat not found')) {
       console.error('[Telegram/چت-مدیر] راهنما: مدیر باید یک بار ربات را در تلگرام باز کند و /start بزند.');
+      return res.status(400).json({
+        success: false,
+        error: 'چت پیدا نشد. مدیر باید یک بار دکمه «برقراری با تلگرام» را بزند، ربات را باز کند و /start بزند؛ بعد دوباره «بررسی اتصال» را بزند.',
+        errorCode: 'chat_not_found',
+      });
     }
     return res.status(400).json({ success: false, error: err.message || 'ارسال ناموفق' });
   }
