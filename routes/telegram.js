@@ -137,17 +137,24 @@ router.post('/loanRequests/broadcastWaiting', async (req, res) => {
   const body = lines.join('\n');
   const text = header + '\n' + body;
 
-  // خواندن لیست Chat ID ها از متغیر محیطی (کاما جدا)، یا استفاده از TELEGRAM_NOTIFY_CHAT_ID
-  const rawList = (process.env.TELEGRAM_BROADCAST_CHAT_IDS || '').trim();
-  const notifyChatId = (process.env.TELEGRAM_NOTIFY_CHAT_ID || '').trim();
-  const chatIds = rawList
-    ? rawList
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
-    : notifyChatId
-    ? [notifyChatId]
-    : [];
+  // اگر از کلاینت target (مثلاً @channel یا chat id) ارسال شده باشد، مستقیماً از آن استفاده می‌کنیم
+  const bodyTarget = req.body && req.body.target ? String(req.body.target).trim() : '';
+  let chatIds = [];
+  if (bodyTarget) {
+    chatIds = [bodyTarget];
+  } else {
+    // در غیر این صورت، خواندن لیست Chat ID ها از متغیر محیطی (کاما جدا)، یا استفاده از TELEGRAM_NOTIFY_CHAT_ID
+    const rawList = (process.env.TELEGRAM_BROADCAST_CHAT_IDS || '').trim();
+    const notifyChatId = (process.env.TELEGRAM_NOTIFY_CHAT_ID || '').trim();
+    chatIds = rawList
+      ? rawList
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : notifyChatId
+      ? [notifyChatId]
+      : [];
+  }
 
   if (!chatIds.length) {
     return res
