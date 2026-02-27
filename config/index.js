@@ -39,10 +39,26 @@ function persistDb() {
   }
 }
 
+/** کاربر ادمین پیش‌فرض وقتی در دیتابیس هیچ کاربری نیست (فقط برای PostgreSQL) */
+const DEFAULT_ADMIN = {
+  id: '1',
+  username: 'admin',
+  password: 'admin123',
+  name: 'مدیر صندوق',
+  role: 'admin',
+  avatar: null,
+};
+
 async function loadDbFromPg() {
   if (!usePg) return null;
   const db = await loadFromPg();
-  if (db) _db = db;
+  if (!db) return null;
+  if (!db.users || db.users.length === 0) {
+    db.users = [DEFAULT_ADMIN];
+    await saveToPg(db);
+    console.log('کاربر ادمین پیش‌فرض (admin / admin123) در دیتابیس ایجاد شد.');
+  }
+  _db = db;
   return db;
 }
 
