@@ -2,6 +2,7 @@ const express = require('express');
 const https = require('https');
 const { db } = require('../config');
 const { getTelegramProxyUrl, createTelegramProxyAgent } = require('../lib/telegramProxy');
+const { formatNumTelegram } = require('../shamsiUtils');
 
 let telegramBot = null;
 try {
@@ -94,6 +95,81 @@ router.post('/loanRequests/:id/notifyApproval', (req, res) => {
     });
   }
   res.json({ success: true });
+});
+
+// انتشار لیست افراد در انتظار وام (درخواست‌های تأیید‌شده) در کانال‌ها/گروه‌های تنظیم‌شده
+router.post('/loanRequests/broadcastWaiting', async (req, res) => {
+  if (!telegramBot) {
+    return res.status(500).json({ message: 'ربات تلگرام فعال نیست.' });
+  }
+
+  const approved = (db.loanRequests || []).filter((r) => r.status === 'approved');
+  if (!approved.length) {
+    return res.status(200).json({ message: 'درخواستی با وضعیت تأیید شده وجود ندارد.' });
+  }
+
+  // مرتب‌سازی بر اساس تاریخ ایجاد (قدیمی‌تر اول)
+  approved.sort((a, b) => {
+    const da = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const dbt = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return da - dbt;
+  });
+
+  // تلاش برای پیدا کردن نام عضو بر اساس telegramChatId
+  const members = db.members || [];
+  const lines = approved.map((r, idx) => {
+    const member =
+      members.find((m) => m.telegramChatId && String(m.telegramChatId) === String(r.telegramChatId)) || null;
+    const baseName = member?.fullName || (r.userName ? `@${r.userName}` : `Chat ID: ${r.telegramChatId || 'نامشخص'}`);
+    const created = r.createdAt ? new Date(r.createdAt) : null;
+    const createdDate =
+      created && !isNaN(created.getTime())
+        ? `${created.getFullYear()}-${String(created.getMonth() + 1).padStart(2, '0')}-${String(
+            created.getDate()
+          ).padStart(2, '0')}`
+        : 'تاریخ نامشخص';
+
+    const indexFa = formatNumTelegram(idx + 1);
+    return `${indexFa}) ${baseName} – تاریخ ثبت درخواست: ${createdDate}`;
+  });
+
+  const header = '📢 لیست افراد در انتظار وام (درخواست‌های تأیید‌شده):\n';
+  const body = lines.join('\n');
+  const text = header + '\n' + body;
+
+  // خواندن لیست Chat ID ها از متغیر محیطی (کاما جدا)، یا استفاده از TELEGRAM_NOTIFY_CHAT_ID
+  const rawList = (process.env.TELEGRAM_BROADCAST_CHAT_IDS || '').trim();
+  const notifyChatId = (process.env.TELEGRAM_NOTIFY_CHAT_ID || '').trim();
+  const chatIds = rawList
+    ? rawList
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : notifyChatId
+    ? [notifyChatId]
+    : [];
+
+  if (!chatIds.length) {
+    return res
+      .status(400)
+      .json({ message: 'هیچ Chat ID برای ارسال (TELEGRAM_BROADCAST_CHAT_IDS یا TELEGRAM_NOTIFY_CHAT_ID) تنظیم نشده است.' });
+  }
+
+  const results = [];
+  for (const cid of chatIds) {
+    try {
+      // ارسال به هر کانال/گروه تنظیم‌شده
+      // نکته: برای کانال باید bot به‌عنوان Admin اضافه شده باشد و Chat ID درست تنظیم شود.
+      // eslint-disable-next-line no-await-in-loop
+      await telegramBot.sendMessage(String(cid), text);
+      results.push({ chatId: cid, success: true });
+    } catch (err) {
+      console.error('[Telegram] خطا در ارسال لیست در انتظار وام به', cid, ':', err.message);
+      results.push({ chatId: cid, success: false, error: err.message });
+    }
+  }
+
+  res.json({ success: true, count: approved.length, sentTo: results });
 });
 
 module.exports = router;
