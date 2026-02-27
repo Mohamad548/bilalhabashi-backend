@@ -230,7 +230,10 @@ router.post('/receipt-submissions/:id/approve', async (req, res) => {
   }
   const notifyTarget = (telegramSettings.notifyTarget || '').trim();
   if (telegramBot && notifyTarget && telegramSettings.sendPaymentToAdmin !== false) {
-    const textForAdmin = (sendReceiptGroup && textForGroup) ? textForGroup : (sendReceiptMember && textForMember ? textForMember : null);
+    const adminTpl = (telegramSettings.paymentAdminTemplate || '').trim();
+    const textForAdmin = adminTpl
+      ? formatTemplate(adminTpl, ctx)
+      : ((sendReceiptGroup && textForGroup) ? textForGroup : (sendReceiptMember && textForMember ? textForMember : null));
     if (textForAdmin) {
       telegramBot.sendMessage(String(notifyTarget), textForAdmin).catch((err) => {
         console.error('[Telegram] خطا در ارسال اعلان پرداخت به چت مدیر:', err.message);

@@ -34,16 +34,21 @@ function persistAfterRouter(req, res, next) {
             .filter(Boolean);
           const uniqueTargets = [...new Set(adminTargets)];
           const userName = body.userName ? `@${body.userName}` : 'ناشناس';
-          const text = `📩 درخواست وام جدید از ${userName} (Chat ID: ${body.telegramChatId}).`;
+          const chatId = String(body.telegramChatId || '');
+          const textForChannel = `📩 درخواست وام جدید از ${userName} (Chat ID: ${chatId}).`;
+          const adminTpl = (telegramSettings.loanRequestAdminTemplate || '').trim();
+          const textForAdmin = adminTpl
+            ? adminTpl.replace(/\{userName\}/g, userName).replace(/\{chatId\}/g, chatId)
+            : textForChannel;
           const notifyTarget = (telegramSettings.notifyTarget || '').trim();
           setImmediate(() => {
             for (const targetId of uniqueTargets) {
-              telegramBot.sendMessage(String(targetId), text).catch((err) => {
+              telegramBot.sendMessage(String(targetId), textForChannel).catch((err) => {
                 console.error('[Telegram] خطا در ارسال اعلان درخواست وام به کانال/گروه:', err.message);
               });
             }
             if (notifyTarget && telegramSettings.sendLoanRequestToAdmin !== false) {
-              telegramBot.sendMessage(String(notifyTarget), text).catch((err) => {
+              telegramBot.sendMessage(String(notifyTarget), textForAdmin).catch((err) => {
                 console.error('[Telegram] خطا در ارسال اعلان درخواست وام به چت مدیر:', err.message);
               });
             }

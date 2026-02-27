@@ -21,6 +21,9 @@ router.get('/admin/telegram-settings', (req, res) => {
     receiptGroupTemplate: settings.receiptGroupTemplate || '',
     manualPaymentGroupTemplate: settings.manualPaymentGroupTemplate || '',
     broadcastWaitingTemplate: settings.broadcastWaitingTemplate || '',
+    broadcastWaitingLineTemplate: settings.broadcastWaitingLineTemplate || '',
+    loanRequestAdminTemplate: settings.loanRequestAdminTemplate || '',
+    paymentAdminTemplate: settings.paymentAdminTemplate || '',
   });
 });
 
@@ -45,6 +48,12 @@ router.post('/admin/telegram-settings', async (req, res) => {
     body.manualPaymentGroupTemplate != null ? String(body.manualPaymentGroupTemplate) : '';
   const broadcastWaitingTemplate =
     body.broadcastWaitingTemplate != null ? String(body.broadcastWaitingTemplate) : '';
+  const broadcastWaitingLineTemplate =
+    body.broadcastWaitingLineTemplate != null ? String(body.broadcastWaitingLineTemplate) : '';
+  const loanRequestAdminTemplate =
+    body.loanRequestAdminTemplate != null ? String(body.loanRequestAdminTemplate) : '';
+  const paymentAdminTemplate =
+    body.paymentAdminTemplate != null ? String(body.paymentAdminTemplate) : '';
 
   db.telegramSettings = {
     adminTarget,
@@ -61,6 +70,9 @@ router.post('/admin/telegram-settings', async (req, res) => {
     receiptGroupTemplate,
     manualPaymentGroupTemplate,
     broadcastWaitingTemplate,
+    broadcastWaitingLineTemplate,
+    loanRequestAdminTemplate,
+    paymentAdminTemplate,
   };
 
   try {
@@ -85,6 +97,9 @@ router.post('/admin/telegram-settings', async (req, res) => {
       receiptGroupTemplate,
       manualPaymentGroupTemplate,
       broadcastWaitingTemplate,
+      broadcastWaitingLineTemplate,
+      loanRequestAdminTemplate,
+      paymentAdminTemplate,
     });
   } catch (err) {
     console.error('[settings] خطا در ذخیره تنظیمات تلگرام:', err.message);

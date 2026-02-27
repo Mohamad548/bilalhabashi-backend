@@ -114,7 +114,11 @@ app.post('/api/payments', async (req, res) => {
       }
       const notifyTarget = (telegramSettings.notifyTarget || '').trim();
       if (notifyTarget && telegramSettings.sendPaymentToAdmin !== false) {
-        telegramBot.sendMessage(String(notifyTarget), text).catch((err) => {
+        const adminTpl = (telegramSettings.paymentAdminTemplate || '').trim();
+        const textForAdmin = adminTpl
+          ? formatTemplate(adminTpl, { memberName, amount: amountFa, date: dateStr })
+          : text;
+        telegramBot.sendMessage(String(notifyTarget), textForAdmin).catch((err) => {
           console.error('[Telegram] خطا در ارسال اعلان پرداخت به چت مدیر:', err.message);
         });
       }

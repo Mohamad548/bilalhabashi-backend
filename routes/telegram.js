@@ -117,6 +117,9 @@ router.post('/loanRequests/broadcastWaiting', async (req, res) => {
 
   // تلاش برای پیدا کردن نام عضو بر اساس telegramChatId
   const members = db.members || [];
+  const telegramSettings = db.telegramSettings || {};
+  const lineTpl = (telegramSettings.broadcastWaitingLineTemplate || '').trim();
+
   const lines = approved.map((r, idx) => {
     const member =
       members.find((m) => m.telegramChatId && String(m.telegramChatId) === String(r.telegramChatId)) || null;
@@ -130,11 +133,16 @@ router.post('/loanRequests/broadcastWaiting', async (req, res) => {
         : 'تاریخ نامشخص';
 
     const indexFa = formatNumTelegram(idx + 1);
+    if (lineTpl) {
+      return lineTpl
+        .replace(/\{row\}/g, indexFa)
+        .replace(/\{name\}/g, baseName)
+        .replace(/\{date\}/g, createdDate);
+    }
     return `${indexFa}) ${baseName} – تاریخ ثبت درخواست: ${createdDate}`;
   });
 
   const listBody = lines.join('\n');
-  const telegramSettings = db.telegramSettings || {};
   const customTpl = (telegramSettings.broadcastWaitingTemplate || '').trim();
   const text = customTpl
     ? customTpl
