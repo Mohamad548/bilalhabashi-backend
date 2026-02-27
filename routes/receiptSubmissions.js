@@ -13,6 +13,11 @@ try {
 
 const router = express.Router();
 
+function formatTemplate(tpl, ctx) {
+  if (!tpl || typeof tpl !== 'string') return '';
+  return tpl.replace(/\{(\w+)\}/g, (m, key) => (ctx[key] != null ? String(ctx[key]) : ''));
+}
+
 router.get('/receiptSubmissions', (req, res) => {
   res.json(db.receiptSubmissions || []);
 });
@@ -183,21 +188,54 @@ router.post('/receipt-submissions/:id/approve', async (req, res) => {
 
   const chatId = member.telegramChatId;
   const telegramSettings = db.telegramSettings || {};
-  const adminGroupId = (telegramSettings.adminTarget || process.env.TELEGRAM_ADMIN_GROUP_ID || '').trim();
+  const adminTargets = [
+    telegramSettings.adminChannelTarget,
+    telegramSettings.adminGroupTarget,
+    telegramSettings.adminTarget,
+    process.env.TELEGRAM_ADMIN_GROUP_ID,
+  ]
+    .filter(Boolean)
+    .map((s) => String(s).trim())
+    .filter(Boolean);
+  const uniqueTargets = [...new Set(adminTargets)];
+
   const memberName = rec.memberName || member.fullName || 'عضو بدون نام';
   const amountFa = formatNumTelegram(amount);
-  const textForMember = `پرداخت شما به مبلغ ${amountFa} تومان در تاریخ ${dateStr} در سیستم ثبت شد.`;
-  const textForGroup = `✅ پرداخت عضو «${memberName}» به مبلغ ${amountFa} تومان در تاریخ ${dateStr} در سیستم ثبت شد.`;
 
-  if (telegramBot && chatId) {
+  const baseMemberTpl =
+    telegramSettings.receiptMemberTemplate ||
+    'پرداخت شما به مبلغ {amount} تومان در تاریخ {date} در سیستم ثبت شد.';
+  const baseGroupTpl =
+    telegramSettings.receiptGroupTemplate ||
+    '✅ پرداخت عضو «{memberName}» به مبلغ {amount} تومان در تاریخ {date} در سیستم ثبت شد.';
+
+  const ctx = { memberName, amount: amountFa, date: dateStr };
+  const textForMember = formatTemplate(baseMemberTpl, ctx);
+  const textForGroup = formatTemplate(baseGroupTpl, ctx);
+
+  const sendReceiptMember = telegramSettings.sendReceiptMember !== false;
+  const sendReceiptGroup = telegramSettings.sendReceiptGroup !== false;
+
+  if (telegramBot && chatId && sendReceiptMember && textForMember) {
     telegramBot.sendMessage(String(chatId), textForMember).catch((err) => {
       console.error('[Telegram] خطا در ارسال پیام به عضو:', err.message);
     });
   }
-  if (telegramBot && adminGroupId) {
-    telegramBot.sendMessage(adminGroupId, textForGroup).catch((err) => {
-      console.error('[Telegram] خطا در ارسال پیام به گروه ادمین:', err.message);
-    });
+  if (telegramBot && sendReceiptGroup && textForGroup) {
+    for (const targetId of uniqueTargets) {
+      telegramBot.sendMessage(String(targetId), textForGroup).catch((err) => {
+        console.error('[Telegram] خطا در ارسال پیام به کانال/گروه ادمین:', err.message);
+      });
+    }
+  }
+  const notifyTarget = (telegramSettings.notifyTarget || '').trim();
+  if (telegramBot && notifyTarget && telegramSettings.sendPaymentToAdmin !== false) {
+    const textForAdmin = (sendReceiptGroup && textForGroup) ? textForGroup : (sendReceiptMember && textForMember ? textForMember : null);
+    if (textForAdmin) {
+      telegramBot.sendMessage(String(notifyTarget), textForAdmin).catch((err) => {
+        console.error('[Telegram] خطا در ارسال اعلان پرداخت به چت مدیر:', err.message);
+      });
+    }
   }
   res.json({ success: true, message: 'تایید شد.' });
 });

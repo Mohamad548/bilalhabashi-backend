@@ -133,41 +133,50 @@ router.post('/loanRequests/broadcastWaiting', async (req, res) => {
     return `${indexFa}) ${baseName} – تاریخ ثبت درخواست: ${createdDate}`;
   });
 
-  const header = '📢 لیست افراد در انتظار وام (درخواست‌های تأیید‌شده):\n';
-  const body = lines.join('\n');
-  const text = header + '\n' + body;
+  const listBody = lines.join('\n');
+  const telegramSettings = db.telegramSettings || {};
+  const customTpl = (telegramSettings.broadcastWaitingTemplate || '').trim();
+  const text = customTpl
+    ? customTpl
+        .replace(/\{list\}/g, listBody)
+        .replace(/\{count\}/g, String(approved.length))
+    : '📢 لیست افراد در انتظار وام (درخواست‌های تأیید‌شده):\n\n' + listBody;
 
-  // اگر از کلاینت target (مثلاً @channel یا chat id) ارسال شده باشد، مستقیماً از آن استفاده می‌کنیم
+  // اگر از کلاینت target ارسال شده باشد، مستقیماً از آن استفاده می‌کنیم؛ وگرنه از تنظیمات تلگرام (کانال/گروه) یا env
   const bodyTarget = req.body && req.body.target ? String(req.body.target).trim() : '';
   let chatIds = [];
   if (bodyTarget) {
     chatIds = [bodyTarget];
   } else {
-    // در غیر این صورت، خواندن لیست Chat ID ها از متغیر محیطی (کاما جدا)، یا استفاده از TELEGRAM_NOTIFY_CHAT_ID
-    const rawList = (process.env.TELEGRAM_BROADCAST_CHAT_IDS || '').trim();
-    const notifyChatId = (process.env.TELEGRAM_NOTIFY_CHAT_ID || '').trim();
-    chatIds = rawList
-      ? rawList
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean)
-      : notifyChatId
-      ? [notifyChatId]
-      : [];
+    const telegramSettings = db.telegramSettings || {};
+    const fromSettings = [
+      telegramSettings.adminChannelTarget,
+      telegramSettings.adminGroupTarget,
+      telegramSettings.adminTarget,
+    ]
+      .filter(Boolean)
+      .map((s) => String(s).trim())
+      .filter(Boolean);
+    if (fromSettings.length > 0) {
+      chatIds = [...new Set(fromSettings)];
+    } else {
+      const rawList = (process.env.TELEGRAM_BROADCAST_CHAT_IDS || '').trim();
+      const notifyChatId = (process.env.TELEGRAM_NOTIFY_CHAT_ID || '').trim();
+      chatIds = rawList
+        ? rawList.split(',').map((s) => s.trim()).filter(Boolean)
+        : notifyChatId ? [notifyChatId] : [];
+    }
   }
 
   if (!chatIds.length) {
     return res
       .status(400)
-      .json({ message: 'هیچ Chat ID برای ارسال (TELEGRAM_BROADCAST_CHAT_IDS یا TELEGRAM_NOTIFY_CHAT_ID) تنظیم نشده است.' });
+      .json({ message: 'مقصدی برای ارسال تنظیم نشده است. در تنظیمات تلگرام، تب عمومی، کانال یا گروه اعلانات را پر کنید.' });
   }
 
   const results = [];
   for (const cid of chatIds) {
     try {
-      // ارسال به هر کانال/گروه تنظیم‌شده
-      // نکته: برای کانال باید bot به‌عنوان Admin اضافه شده باشد و Chat ID درست تنظیم شود.
-      // eslint-disable-next-line no-await-in-loop
       await telegramBot.sendMessage(String(cid), text);
       results.push({ chatId: cid, success: true });
     } catch (err) {
