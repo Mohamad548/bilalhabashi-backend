@@ -21,7 +21,18 @@ function persistAfterRouter(req, res, next) {
         body.telegramChatId != null;
 
       if (req.method === 'POST' && path === '/api/loanRequests') {
-        console.log('[Telegram] POST /api/loanRequests پاسخ داده شد؛ telegramChatId=', body && body.telegramChatId != null ? body.telegramChatId : 'ندارد', ', userName=', (body && body.userName) || 'ندارد', ', isNewLoanRequest=', isNewLoanRequest, ', telegramBot=', !!telegramBot);
+        console.log('[Telegram/درخواست-وام] ----- پاسخ POST /api/loanRequests -----');
+        console.log('[Telegram/درخواست-وام] path=', path, ', method=', req.method);
+        console.log('[Telegram/درخواست-وام] body کلیدها=', body ? Object.keys(body).join(', ') : 'بدون body');
+        console.log('[Telegram/درخواست-وام] body.telegramChatId=', body && body.telegramChatId, ', body.userName=', body && body.userName);
+        console.log('[Telegram/درخواست-وام] isNewLoanRequest=', isNewLoanRequest, '(نیاز: POST + path=/api/loanRequests + body.telegramChatId موجود)');
+        console.log('[Telegram/درخواست-وام] telegramBot موجود؟', !!telegramBot);
+        if (!isNewLoanRequest && path === '/api/loanRequests') {
+          if (!body) console.log('[Telegram/درخواست-وام] علت عدم ارسال: body خالی است.');
+          else if (body.telegramChatId == null) console.log('[Telegram/درخواست-وام] علت عدم ارسال: body.telegramChatId موجود نیست.');
+          else if (!telegramBot) console.log('[Telegram/درخواست-وام] علت عدم ارسال: telegramBot بارگذاری نشده.');
+        }
+        console.log('[Telegram/درخواست-وام] ----- پایان لاگ پاسخ -----');
       }
 
       if (isNewLoanRequest && telegramBot) {
@@ -42,9 +53,11 @@ function persistAfterRouter(req, res, next) {
         console.log('[Telegram/چت-مدیر] notifyTarget (چت مدیر اصلی)=', notifyTarget ? `"${notifyTarget}"` : 'خالی', '| sendLoanRequestToAdmin=', telegramSettings.sendLoanRequestToAdmin);
         console.log('[Telegram/چت-مدیر] ارسال به مدیر فعال؟ (sendToAdmin)=', sendToAdmin);
         console.log('[Telegram/چت-مدیر] متن اعلان به مدیر:', textForAdmin.substring(0, 80) + (textForAdmin.length > 80 ? '...' : ''));
+        console.log('[Telegram/چت-مدیر] قرار است در setImmediate ارسال شود: sendToAdmin=', sendToAdmin, ', notifyTarget=', notifyTarget ? 'تنظیم‌شده' : 'خالی');
 
         setImmediate(async () => {
           try {
+            console.log('[Telegram/چت-مدیر] [داخل setImmediate] شروع ارسال؛ sendToAdmin=', sendToAdmin, ', notifyTarget=', notifyTarget);
             if (telegramSettings.sendLoanRequestGroup !== false) {
               const adminTargets = [
                 telegramSettings.adminChannelTarget,
