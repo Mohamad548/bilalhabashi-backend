@@ -4,7 +4,7 @@
  */
 const path = require('path');
 const fs = require('fs');
-const { loadFromPg, saveToPg, getPool } = require('../db/pg');
+const { loadFromPg, saveToPg, getPool, ensureDefaultAdmin } = require('../db/pg');
 
 const rootDir = path.join(__dirname, '..');
 const dbPath = path.join(rootDir, 'db.json');
@@ -54,9 +54,9 @@ async function loadDbFromPg() {
   const db = await loadFromPg();
   if (!db) return null;
   if (!db.users || db.users.length === 0) {
+    await ensureDefaultAdmin(DEFAULT_ADMIN);
     db.users = [DEFAULT_ADMIN];
-    await saveToPg(db);
-    console.log('کاربر ادمین پیش‌فرض (admin / admin123) در دیتابیس ایجاد شد.');
+    console.log('کاربر ادمین پیش‌فرض (admin / admin123) در دیتابیس ایجاد یا استفاده شد.');
   }
   _db = db;
   return db;

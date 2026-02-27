@@ -307,4 +307,30 @@ async function saveToPg(db) {
   }
 }
 
-module.exports = { getPool, loadFromPg, saveToPg };
+/**
+ * درج کاربر ادمین پیش‌فرض در صورت نبودن (بدون خطای duplicate key)
+ */
+async function ensureDefaultAdmin(admin) {
+  const p = getPool();
+  if (!p || !admin) return;
+  const client = await p.connect();
+  try {
+    await client.query(
+      `INSERT INTO ${SCHEMA}.users (id, username, password, name, role, avatar)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (id) DO NOTHING`,
+      [
+        admin.id,
+        admin.username || '',
+        admin.password || '',
+        admin.name || null,
+        admin.role || null,
+        admin.avatar || null,
+      ]
+    );
+  } finally {
+    client.release();
+  }
+}
+
+module.exports = { getPool, loadFromPg, saveToPg, ensureDefaultAdmin };
