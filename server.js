@@ -9,6 +9,9 @@ async function start() {
     if (db) {
       config.setDb(db);
       console.log('دیتابیس از Neon (PostgreSQL) بارگذاری شد.');
+      const ts = db.telegramSettings || {};
+      const nt = (ts.notifyTarget || '').trim();
+      console.log('[settings/بارگذاری] تنظیمات تلگرام از دیتابیس لود شد؛ notifyTarget=', nt ? `"${nt}"` : 'خالی', ', sendLoanRequestToAdmin=', ts.sendLoanRequestToAdmin);
     } else {
       console.error('DATABASE_URL تنظیم شده اما بارگذاری از Neon ناموفق بود.');
       process.exit(1);
@@ -29,6 +32,9 @@ async function start() {
     if (config.usePg) console.log('منبع داده: Neon (PostgreSQL)');
     else console.log('منبع داده: فایل db.json');
     if (telegramBot) {
+      if (typeof telegramBot.setWebhookIfConfigured === 'function') {
+        telegramBot.setWebhookIfConfigured();
+      }
       const run = () => runLoanReminders(telegramBot);
       setTimeout(run, 2 * 60 * 1000);
       setInterval(run, 60 * 60 * 1000);

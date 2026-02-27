@@ -130,22 +130,35 @@ if (proxyUrl) {
 }
 
 const requestOptions = proxyUrl ? { agent: createProxyAgent(proxyUrl) } : {};
+const webhookUrl = (process.env.TELEGRAM_WEBHOOK_URL || '').trim();
+const useWebhook = webhookUrl.length > 0;
 
 let bot;
 try {
-  bot = new TelegramBot(token, { polling: true, request: requestOptions });
+  bot = new TelegramBot(token, { polling: !useWebhook, request: requestOptions });
   if (proxyUrl) console.log('[Telegram] ربات با پروکسی راه‌اندازی شد.');
 } catch (err) {
   console.error('[Telegram] خطا در ساخت ربات:', err.message);
   return null;
 }
 
-bot.on('polling_error', (err) => {
-  console.error('[Telegram] خطای Polling:', err.message);
-  if (err.message && err.message.includes('ECONNREFUSED')) {
-    console.error('[Telegram] راهنما: ECONNREFUSED یعنی روی آدرس/پورت پروکسی چیزی گوش نمی‌دهد.');
-  }
-});
+if (useWebhook) {
+  console.log('[Telegram] حالت Webhook فعال است؛ TELEGRAM_WEBHOOK_URL تنظیم شده. بعد از بالا آمدن سرور، Webhook ثبت می‌شود.');
+  bot.setWebhookIfConfigured = function () {
+    bot.setWebHook(webhookUrl).then(() => {
+      console.log('[Telegram] Webhook با موفقیت ثبت شد:', webhookUrl);
+    }).catch((err) => {
+      console.error('[Telegram] خطا در ثبت Webhook:', err.message);
+    });
+  };
+} else {
+  bot.on('polling_error', (err) => {
+    console.error('[Telegram] خطای Polling:', err.message);
+    if (err.message && err.message.includes('ECONNREFUSED')) {
+      console.error('[Telegram] راهنما: ECONNREFUSED یعنی روی آدرس/پورت پروکسی چیزی گوش نمی‌دهد.');
+    }
+  });
+}
 
 const startKeyboard = {
   inline_keyboard: [
@@ -536,6 +549,10 @@ bot.on('callback_query', async (query) => {
   }
 });
 
-console.log('[Telegram] ربات تلگرام فعال شد (Long Polling).');
+if (useWebhook) {
+  console.log('[Telegram] ربات تلگرام فعال شد (Webhook).');
+} else {
+  console.log('[Telegram] ربات تلگرام فعال شد (Long Polling).');
+}
 
 module.exports = bot;

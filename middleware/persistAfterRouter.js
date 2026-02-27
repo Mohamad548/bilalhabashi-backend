@@ -21,7 +21,7 @@ function persistAfterRouter(req, res, next) {
         body.telegramChatId != null;
 
       if (req.method === 'POST' && path === '/api/loanRequests') {
-        console.log('[Telegram] POST /api/loanRequests پاسخ داده شد؛ telegramChatId=', body && body.telegramChatId != null ? body.telegramChatId : 'ندارد', ', isNewLoanRequest=', isNewLoanRequest, ', telegramBot=', !!telegramBot);
+        console.log('[Telegram] POST /api/loanRequests پاسخ داده شد؛ telegramChatId=', body && body.telegramChatId != null ? body.telegramChatId : 'ندارد', ', userName=', (body && body.userName) || 'ندارد', ', isNewLoanRequest=', isNewLoanRequest, ', telegramBot=', !!telegramBot);
       }
 
       if (isNewLoanRequest && telegramBot) {
@@ -36,7 +36,11 @@ function persistAfterRouter(req, res, next) {
         const notifyTarget = (telegramSettings.notifyTarget || '').trim();
         const sendToAdmin = notifyTarget && telegramSettings.sendLoanRequestToAdmin !== false;
 
-        console.log('[Telegram/چت-مدیر] درخواست وام جدید ثبت شد؛ notifyTarget=', notifyTarget ? 'تنظیم‌شده (' + (notifyTarget.length > 4 ? notifyTarget.slice(0, 2) + '...' + notifyTarget.slice(-2) : '***') + ')' : 'خالی', ', sendLoanRequestToAdmin=', telegramSettings.sendLoanRequestToAdmin);
+        console.log('[Telegram/چت-مدیر] ----- شروع ارسال اعلان درخواست وام -----');
+        console.log('[Telegram/چت-مدیر] db.telegramSettings موجود؟', !!db.telegramSettings, '| کلیدها:', db.telegramSettings ? Object.keys(db.telegramSettings).join(', ') : '—');
+        console.log('[Telegram/چت-مدیر] notifyTarget (چت مدیر اصلی)=', notifyTarget ? `"${notifyTarget}"` : 'خالی', '| sendLoanRequestToAdmin=', telegramSettings.sendLoanRequestToAdmin);
+        console.log('[Telegram/چت-مدیر] ارسال به مدیر فعال؟ (sendToAdmin)=', sendToAdmin);
+        console.log('[Telegram/چت-مدیر] متن اعلان به مدیر:', textForAdmin.substring(0, 80) + (textForAdmin.length > 80 ? '...' : ''));
 
         setImmediate(async () => {
           try {
@@ -58,17 +62,18 @@ function persistAfterRouter(req, res, next) {
               }
             }
             if (sendToAdmin) {
-              console.log('[Telegram/چت-مدیر] ارسال اعلان درخواست وام به چت مدیر اصلی.');
+              console.log('[Telegram/چت-مدیر] در حال ارسال پیام به چت مدیر، chatId=', notifyTarget);
               await telegramBot.sendMessage(String(notifyTarget), textForAdmin)
-                .then(() => console.log('[Telegram/چت-مدیر] اعلان درخواست وام به چت مدیر ارسال شد.'))
+                .then(() => console.log('[Telegram/چت-مدیر] ✓ اعلان درخواست وام با موفقیت به چت مدیر ارسال شد.'))
                 .catch((err) => {
-                  console.error('[Telegram/چت-مدیر] خطا در ارسال اعلان درخواست وام به چت مدیر:', err.message);
+                  console.error('[Telegram/چت-مدیر] ✗ خطا در ارسال به چت مدیر:', err.message, '| response=', err.response && err.response.body ? JSON.stringify(err.response.body) : '—');
                 });
             } else if (!notifyTarget) {
-              console.log('[Telegram/چت-مدیر] چت مدیر اصلی (notifyTarget) خالی است؛ اعلان درخواست وام به مدیر ارسال نمی‌شود.');
+              console.log('[Telegram/چت-مدیر] چت مدیر اصلی (notifyTarget) خالی است؛ اعلان ارسال نمی‌شود. در تنظیمات «آیدی/یوزرنیم چت مدیر اصلی» را پر کنید (مثلاً @mahmodi298 یا عدد Chat ID).');
             } else {
-              console.log('[Telegram/چت-مدیر] ارسال به مدیر غیرفعال است (sendLoanRequestToAdmin=false).');
+              console.log('[Telegram/چت-مدیر] ارسال به مدیر غیرفعال است (تیک «اعلان درخواست وام به چت مدیر» را در تنظیمات بزنید).');
             }
+            console.log('[Telegram/چت-مدیر] ----- پایان ارسال اعلان درخواست وام -----');
           } catch (e) {
             console.error('[Telegram] خطا در ارسال اعلان درخواست وام:', e.message);
           }

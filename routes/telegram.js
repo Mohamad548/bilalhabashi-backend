@@ -11,6 +11,14 @@ try {
 
 const router = express.Router();
 
+// دریافت به‌روزرسانی‌های تلگرام وقتی TELEGRAM_WEBHOOK_URL تنظیم شده (جلوگیری از ۴۰۹)
+router.post('/telegram-webhook', (req, res) => {
+  if (telegramBot && typeof telegramBot.processUpdate === 'function') {
+    telegramBot.processUpdate(req.body);
+  }
+  res.sendStatus(200);
+});
+
 router.get('/telegram/check', (req, res) => {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) {

@@ -81,6 +81,7 @@ router.post('/admin/telegram-settings', async (req, res) => {
     } else {
       persistDb();
     }
+    console.log('[settings] تنظیمات تلگرام ذخیره شد؛ notifyTarget=', notifyTarget ? `"${notifyTarget}"` : 'خالی', ', sendLoanRequestToAdmin=', sendLoanRequestToAdmin, ', sendPaymentToAdmin=', sendPaymentToAdmin);
     res.json({
       success: true,
       adminTarget,
