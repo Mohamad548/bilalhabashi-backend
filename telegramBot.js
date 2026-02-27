@@ -388,12 +388,55 @@ async function runMenuAction(chatId, action, userName) {
     let member = null;
     try {
       const members = await apiGet('/api/members?telegramChatId=' + String(chatId));
-      member = Array.isArray(members) ? members.find((m) => String(m.telegramChatId) === String(chatId)) : (members && members[0]) || null;
+      member = Array.isArray(members)
+        ? members.find((m) => String(m.telegramChatId) === String(chatId))
+        : (members && members[0]) || null;
     } catch (e) {}
+
+    // اگر عضو وام فعال دارد، اجازه ثبت درخواست جدید نده
     if (member && (member.loanBalance ?? 0) > 0) {
-      await bot.sendMessage(chatId, 'شما در حال حاضر وام فعال دارید. پس از تسویه یا توصیه شدن وام قبلی می‌توانید درخواست وام جدید ثبت کنید.', withMenu({}));
+      await bot.sendMessage(
+        chatId,
+        'شما در حال حاضر وام فعال دارید. پس از تسویه وام قبلی می‌توانید درخواست وام جدید ثبت کنید.',
+        withMenu({})
+      );
       return;
     }
+
+    // بررسی وجود درخواست‌های قبلی این کاربر از طریق ربات
+    try {
+      const existing = await apiGet('/api/loanRequests?telegramChatId=' + String(chatId));
+      const list = Array.isArray(existing)
+        ? existing
+        : existing && existing[0]
+          ? [existing]
+          : [];
+
+      const hasPending = list.some((r) => r.status === 'pending');
+      const hasApproved = list.some((r) => r.status === 'approved');
+
+      if (hasPending) {
+        await bot.sendMessage(
+          chatId,
+          'شما در حال حاضر یک درخواست وام «در انتظار بررسی» دارید. لطفاً منتظر تأیید ادمین بمانید.',
+          withMenu({})
+        );
+        return;
+      }
+
+      if (hasApproved) {
+        await bot.sendMessage(
+          chatId,
+          'درخواست قبلی شما تأیید شده و در لیست اعطاکنندگان قرار گرفته است. تا زمانی که آن وام اعطا/تسویه نشود، امکان ثبت درخواست جدید نیست.',
+          withMenu({})
+        );
+        return;
+      }
+    } catch (e) {
+      // اگر خواندن درخواست‌های قبلی خطا داد، ادامه می‌دهیم و فقط سعی می‌کنیم درخواست جدید ثبت کنیم
+    }
+
+    // در این مرحله، یا هیچ درخواستی وجود ندارد یا همه رد شده‌اند؛ اجازه ثبت درخواست جدید بده
     try {
       await apiPost('/api/loanRequests', {
         telegramChatId: String(chatId),
@@ -401,7 +444,11 @@ async function runMenuAction(chatId, action, userName) {
         status: 'pending',
         createdAt: new Date().toISOString(),
       });
-      await bot.sendMessage(chatId, 'درخواست ثبت وام شما ثبت شد. در پنل ادمین، منوی «درخواست‌ها» قابل مشاهده است.', withMenu({}));
+      await bot.sendMessage(
+        chatId,
+        'درخواست ثبت وام شما ثبت شد. در پنل ادمین، منوی «درخواست‌ها» قابل مشاهده است.',
+        withMenu({})
+      );
     } catch (e) {
       await bot.sendMessage(chatId, 'خطا در ثبت درخواست. دوباره تلاش کنید.', withMenu({}));
     }
