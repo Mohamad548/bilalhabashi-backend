@@ -4,6 +4,7 @@ const fs = require('fs');
 const https = require('https');
 const { db, persistDb, usePg, receiptsDir } = require('../config');
 const { getTelegramProxyUrl, createTelegramProxyAgent } = require('../lib/telegramProxy');
+const { formatNumTelegram } = require('../shamsiUtils');
 
 let telegramBot = null;
 try {
@@ -181,14 +182,20 @@ router.post('/receipt-submissions/:id/approve', async (req, res) => {
   if (usePg) await persistDb(); else persistDb();
 
   const chatId = member.telegramChatId;
-  const adminGroupId = (process.env.TELEGRAM_ADMIN_GROUP_ID || '').trim();
+  const telegramSettings = db.telegramSettings || {};
+  const adminGroupId = (telegramSettings.adminTarget || process.env.TELEGRAM_ADMIN_GROUP_ID || '').trim();
+  const memberName = rec.memberName || member.fullName || 'عضو بدون نام';
+  const amountFa = formatNumTelegram(amount);
+  const textForMember = `پرداخت شما به مبلغ ${amountFa} تومان در تاریخ ${dateStr} در سیستم ثبت شد.`;
+  const textForGroup = `✅ پرداخت عضو «${memberName}» به مبلغ ${amountFa} تومان در تاریخ ${dateStr} در سیستم ثبت شد.`;
+
   if (telegramBot && chatId) {
-    telegramBot.sendMessage(String(chatId), 'پرداخت شما ثبت شد.').catch((err) => {
+    telegramBot.sendMessage(String(chatId), textForMember).catch((err) => {
       console.error('[Telegram] خطا در ارسال پیام به عضو:', err.message);
     });
   }
   if (telegramBot && adminGroupId) {
-    telegramBot.sendMessage(adminGroupId, `پرداخت عضو «${rec.memberName}» انجام شد.`).catch((err) => {
+    telegramBot.sendMessage(adminGroupId, textForGroup).catch((err) => {
       console.error('[Telegram] خطا در ارسال پیام به گروه ادمین:', err.message);
     });
   }

@@ -18,7 +18,17 @@ if (!usePg) {
   try {
     _db = require(dbPath);
   } catch (e) {
-    _db = { users: [], members: [], payments: [], loans: [], fundLog: [], fund: [{ id: 'main', cashBalance: 0 }], loanRequests: [], receiptSubmissions: [] };
+    _db = {
+      users: [],
+      members: [],
+      payments: [],
+      loans: [],
+      fundLog: [],
+      fund: [{ id: 'main', cashBalance: 0 }],
+      loanRequests: [],
+      receiptSubmissions: [],
+      telegramSettings: {},
+    };
   }
 }
 
