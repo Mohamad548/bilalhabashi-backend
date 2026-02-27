@@ -107,25 +107,29 @@ app.post('/api/payments', async (req, res) => {
       '✅ پرداخت عضو «{memberName}» به مبلغ {amount} تومان در تاریخ {date} در سیستم ثبت شد.';
     const text = formatTemplate(baseTpl, { memberName, amount: amountFa, date: dateStr });
     if (text) {
-      for (const targetId of uniqueTargets) {
-        telegramBot.sendMessage(String(targetId), text).catch((err) => {
-          console.error('[Telegram] خطا در ارسال پیام ثبت پرداخت دستی به کانال/گروه ادمین:', err.message);
-        });
-      }
-      const notifyTarget = (telegramSettings.notifyTarget || '').trim();
-      if (notifyTarget && telegramSettings.sendPaymentToAdmin !== false) {
-        const adminTpl = (telegramSettings.paymentAdminTemplate || '').trim();
-        const textForAdmin = adminTpl
-          ? formatTemplate(adminTpl, { memberName, amount: amountFa, date: dateStr })
-          : text;
-        console.log('[Telegram/چت-مدیر] ارسال اعلان پرداخت دستی به چت مدیر اصلی، target:', notifyTarget.length > 4 ? notifyTarget.slice(0, 2) + '...' + notifyTarget.slice(-2) : '***');
-        telegramBot.sendMessage(String(notifyTarget), textForAdmin)
-          .then(() => console.log('[Telegram/چت-مدیر] اعلان پرداخت دستی به چت مدیر ارسال شد.'))
-          .catch((err) => {
-            console.error('[Telegram/چت-مدیر] خطا در ارسال اعلان پرداخت دستی به چت مدیر:', err.message);
+      try {
+        for (const targetId of uniqueTargets) {
+          await telegramBot.sendMessage(String(targetId), text).catch((err) => {
+            console.error('[Telegram] خطا در ارسال پیام ثبت پرداخت دستی به کانال/گروه ادمین:', err.message);
           });
-      } else if (!notifyTarget) {
-        console.log('[Telegram/چت-مدیر] چت مدیر اصلی (notifyTarget) خالی است؛ اعلان پرداخت دستی به مدیر ارسال نمی‌شود.');
+        }
+        const notifyTarget = (telegramSettings.notifyTarget || '').trim();
+        if (notifyTarget && telegramSettings.sendPaymentToAdmin !== false) {
+          const adminTpl = (telegramSettings.paymentAdminTemplate || '').trim();
+          const textForAdmin = adminTpl
+            ? formatTemplate(adminTpl, { memberName, amount: amountFa, date: dateStr })
+            : text;
+          console.log('[Telegram/چت-مدیر] ارسال اعلان پرداخت دستی به چت مدیر اصلی، target:', notifyTarget.length > 4 ? notifyTarget.slice(0, 2) + '...' + notifyTarget.slice(-2) : '***');
+          await telegramBot.sendMessage(String(notifyTarget), textForAdmin)
+            .then(() => console.log('[Telegram/چت-مدیر] اعلان پرداخت دستی به چت مدیر ارسال شد.'))
+            .catch((err) => {
+              console.error('[Telegram/چت-مدیر] خطا در ارسال اعلان پرداخت دستی به چت مدیر:', err.message);
+            });
+        } else if (!notifyTarget) {
+          console.log('[Telegram/چت-مدیر] چت مدیر اصلی (notifyTarget) خالی است؛ اعلان پرداخت دستی به مدیر ارسال نمی‌شود.');
+        }
+      } catch (e) {
+        console.error('[Telegram] خطا در ارسال پیام‌های پرداخت دستی:', e.message);
       }
     }
   }

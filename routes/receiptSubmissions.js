@@ -215,35 +215,41 @@ router.post('/receipt-submissions/:id/approve', async (req, res) => {
 
   const sendReceiptMember = telegramSettings.sendReceiptMember !== false;
   const sendReceiptGroup = telegramSettings.sendReceiptGroup !== false;
-
-  if (telegramBot && chatId && sendReceiptMember && textForMember) {
-    telegramBot.sendMessage(String(chatId), textForMember).catch((err) => {
-      console.error('[Telegram] خطا در ارسال پیام به عضو:', err.message);
-    });
-  }
-  if (telegramBot && sendReceiptGroup && textForGroup) {
-    for (const targetId of uniqueTargets) {
-      telegramBot.sendMessage(String(targetId), textForGroup).catch((err) => {
-        console.error('[Telegram] خطا در ارسال پیام به کانال/گروه ادمین:', err.message);
-      });
-    }
-  }
   const notifyTarget = (telegramSettings.notifyTarget || '').trim();
-  if (telegramBot && notifyTarget && telegramSettings.sendPaymentToAdmin !== false) {
-    const adminTpl = (telegramSettings.paymentAdminTemplate || '').trim();
-    const textForAdmin = adminTpl
-      ? formatTemplate(adminTpl, ctx)
-      : ((sendReceiptGroup && textForGroup) ? textForGroup : (sendReceiptMember && textForMember ? textForMember : null));
-    if (textForAdmin) {
-      console.log('[Telegram/چت-مدیر] ارسال اعلان پرداخت (رسید) به چت مدیر اصلی، target:', notifyTarget.length > 4 ? notifyTarget.slice(0, 2) + '...' + notifyTarget.slice(-2) : '***');
-      telegramBot.sendMessage(String(notifyTarget), textForAdmin)
-        .then(() => console.log('[Telegram/چت-مدیر] اعلان پرداخت به چت مدیر ارسال شد.'))
-        .catch((err) => {
-          console.error('[Telegram/چت-مدیر] خطا در ارسال اعلان پرداخت به چت مدیر:', err.message);
+
+  if (telegramBot) {
+    try {
+      if (chatId && sendReceiptMember && textForMember) {
+        await telegramBot.sendMessage(String(chatId), textForMember).catch((err) => {
+          console.error('[Telegram] خطا در ارسال پیام به عضو:', err.message);
         });
+      }
+      if (sendReceiptGroup && textForGroup) {
+        for (const targetId of uniqueTargets) {
+          await telegramBot.sendMessage(String(targetId), textForGroup).catch((err) => {
+            console.error('[Telegram] خطا در ارسال پیام به کانال/گروه ادمین:', err.message);
+          });
+        }
+      }
+      if (notifyTarget && telegramSettings.sendPaymentToAdmin !== false) {
+        const adminTpl = (telegramSettings.paymentAdminTemplate || '').trim();
+        const textForAdmin = adminTpl
+          ? formatTemplate(adminTpl, ctx)
+          : ((sendReceiptGroup && textForGroup) ? textForGroup : (sendReceiptMember && textForMember ? textForMember : null));
+        if (textForAdmin) {
+          console.log('[Telegram/چت-مدیر] ارسال اعلان پرداخت (رسید) به چت مدیر اصلی، target:', notifyTarget.length > 4 ? notifyTarget.slice(0, 2) + '...' + notifyTarget.slice(-2) : '***');
+          await telegramBot.sendMessage(String(notifyTarget), textForAdmin)
+            .then(() => console.log('[Telegram/چت-مدیر] اعلان پرداخت به چت مدیر ارسال شد.'))
+            .catch((err) => {
+              console.error('[Telegram/چت-مدیر] خطا در ارسال اعلان پرداخت به چت مدیر:', err.message);
+            });
+        }
+      } else if (!notifyTarget) {
+        console.log('[Telegram/چت-مدیر] چت مدیر اصلی (notifyTarget) خالی است؛ اعلان پرداخت به مدیر ارسال نمی‌شود.');
+      }
+    } catch (e) {
+      console.error('[Telegram] خطا در ارسال پیام‌های تأیید رسید:', e.message);
     }
-  } else if (telegramBot && !notifyTarget) {
-    console.log('[Telegram/چت-مدیر] چت مدیر اصلی (notifyTarget) خالی است؛ اعلان پرداخت به مدیر ارسال نمی‌شود.');
   }
   res.json({ success: true, message: 'تایید شد.' });
 });

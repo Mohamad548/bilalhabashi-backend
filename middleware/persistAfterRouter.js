@@ -41,21 +41,25 @@ function persistAfterRouter(req, res, next) {
             ? adminTpl.replace(/\{userName\}/g, userName).replace(/\{chatId\}/g, chatId)
             : textForChannel;
           const notifyTarget = (telegramSettings.notifyTarget || '').trim();
-          setImmediate(() => {
-            for (const targetId of uniqueTargets) {
-              telegramBot.sendMessage(String(targetId), textForChannel).catch((err) => {
-                console.error('[Telegram] خطا در ارسال اعلان درخواست وام به کانال/گروه:', err.message);
-              });
-            }
-            if (notifyTarget && telegramSettings.sendLoanRequestToAdmin !== false) {
-              console.log('[Telegram/چت-مدیر] ارسال اعلان درخواست وام به چت مدیر اصلی، target:', notifyTarget.length > 4 ? notifyTarget.slice(0, 2) + '...' + notifyTarget.slice(-2) : '***');
-              telegramBot.sendMessage(String(notifyTarget), textForAdmin)
-                .then(() => console.log('[Telegram/چت-مدیر] اعلان درخواست وام به چت مدیر ارسال شد.'))
-                .catch((err) => {
-                  console.error('[Telegram/چت-مدیر] خطا در ارسال اعلان درخواست وام به چت مدیر:', err.message);
+          setImmediate(async () => {
+            try {
+              for (const targetId of uniqueTargets) {
+                await telegramBot.sendMessage(String(targetId), textForChannel).catch((err) => {
+                  console.error('[Telegram] خطا در ارسال اعلان درخواست وام به کانال/گروه:', err.message);
                 });
-            } else if (!notifyTarget) {
-              console.log('[Telegram/چت-مدیر] چت مدیر اصلی (notifyTarget) خالی است؛ اعلان درخواست وام به مدیر ارسال نمی‌شود.');
+              }
+              if (notifyTarget && telegramSettings.sendLoanRequestToAdmin !== false) {
+                console.log('[Telegram/چت-مدیر] ارسال اعلان درخواست وام به چت مدیر اصلی، target:', notifyTarget.length > 4 ? notifyTarget.slice(0, 2) + '...' + notifyTarget.slice(-2) : '***');
+                await telegramBot.sendMessage(String(notifyTarget), textForAdmin)
+                  .then(() => console.log('[Telegram/چت-مدیر] اعلان درخواست وام به چت مدیر ارسال شد.'))
+                  .catch((err) => {
+                    console.error('[Telegram/چت-مدیر] خطا در ارسال اعلان درخواست وام به چت مدیر:', err.message);
+                  });
+              } else if (!notifyTarget) {
+                console.log('[Telegram/چت-مدیر] چت مدیر اصلی (notifyTarget) خالی است؛ اعلان درخواست وام به مدیر ارسال نمی‌شود.');
+              }
+            } catch (e) {
+              console.error('[Telegram] خطا در ارسال اعلان درخواست وام:', e.message);
             }
           });
         }

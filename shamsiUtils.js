@@ -60,7 +60,7 @@ function gregorianToShamsi(gregorianDate) {
   const gy = g.getFullYear();
   const gm = g.getMonth() + 1;
   const gd = g.getDate();
-  const g_d_n = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334][gm - 1] + gd;
+  let g_d_n = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334][gm - 1] + gd;
   const isLeap = (gy % 4 === 0 && gy % 100 !== 0) || gy % 400 === 0;
   if (gm > 2 && isLeap) g_d_n += 1;
   let jy = gy <= 1600 ? 0 : 979;
