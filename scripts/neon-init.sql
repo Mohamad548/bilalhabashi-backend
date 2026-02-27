@@ -55,7 +55,8 @@ CREATE TABLE IF NOT EXISTS sanduq_bilal_habashi.loans (
   date TEXT,
   due_months INTEGER,
   status TEXT DEFAULT 'active',
-  created_at TIMESTAMPTZ
+  created_at TIMESTAMPTZ,
+  reminder_sent JSONB DEFAULT '{}'
 );
 
 -- جدول لاگ صندوق (برای آینده)

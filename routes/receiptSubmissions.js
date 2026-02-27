@@ -2,7 +2,7 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
-const { db, persistDb, receiptsDir } = require('../config');
+const { db, persistDb, usePg, receiptsDir } = require('../config');
 const { getTelegramProxyUrl, createTelegramProxyAgent } = require('../lib/telegramProxy');
 
 let telegramBot = null;
@@ -65,7 +65,7 @@ router.post('/receipt-submissions', async (req, res) => {
       createdAt: new Date().toISOString(),
     };
     db.receiptSubmissions.push(record);
-    persistDb();
+    if (usePg) await persistDb(); else persistDb();
     res.json(record);
   } catch (err) {
     console.error('[receipt-submissions] خطا:', err.message);
@@ -73,7 +73,7 @@ router.post('/receipt-submissions', async (req, res) => {
   }
 });
 
-router.post('/receipt-submissions/:id/approve', (req, res) => {
+router.post('/receipt-submissions/:id/approve', async (req, res) => {
   const id = req.params.id;
   const list = db.receiptSubmissions || [];
   const index = list.findIndex((r) => String(r.id) === String(id));
@@ -178,7 +178,7 @@ router.post('/receipt-submissions/:id/approve', (req, res) => {
 
   rec.status = 'approved';
   rec.approvedAt = new Date().toISOString();
-  persistDb();
+  if (usePg) await persistDb(); else persistDb();
 
   const chatId = member.telegramChatId;
   const adminGroupId = (process.env.TELEGRAM_ADMIN_GROUP_ID || '').trim();
@@ -195,7 +195,7 @@ router.post('/receipt-submissions/:id/approve', (req, res) => {
   res.json({ success: true, message: 'تایید شد.' });
 });
 
-router.post('/receipt-submissions/:id/reject', (req, res) => {
+router.post('/receipt-submissions/:id/reject', async (req, res) => {
   const id = req.params.id;
   const list = db.receiptSubmissions || [];
   const index = list.findIndex((r) => String(r.id) === String(id));
@@ -214,7 +214,7 @@ router.post('/receipt-submissions/:id/reject', (req, res) => {
   rec.status = 'rejected';
   rec.rejectedAt = new Date().toISOString();
   rec.rejectMessage = message;
-  persistDb();
+  if (usePg) await persistDb(); else persistDb();
 
   const chatId = member.telegramChatId;
   if (telegramBot && chatId) {

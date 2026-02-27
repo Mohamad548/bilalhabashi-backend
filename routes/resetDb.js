@@ -18,7 +18,7 @@ function getAuthUser(req) {
   return user || null;
 }
 
-router.post('/admin/reset-db', (req, res) => {
+router.post('/admin/reset-db', async (req, res) => {
   const user = getAuthUser(req);
   if (!user) {
     return res.status(401).json({ success: false, message: 'لطفاً وارد شوید.' });
@@ -45,7 +45,12 @@ router.post('/admin/reset-db', (req, res) => {
     db.loanRequests = [];
     db.receiptSubmissions = [];
 
-    persistDb();
+    const { usePg } = require('../config');
+    if (usePg) {
+      await persistDb();
+    } else {
+      persistDb();
+    }
     res.json({ success: true, message: 'دیتابیس با موفقیت ریست شد. فقط اعضا و کاربران حفظ شدند.' });
   } catch (err) {
     console.error(err);
