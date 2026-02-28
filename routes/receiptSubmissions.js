@@ -23,7 +23,7 @@ router.get('/receiptSubmissions', (req, res) => {
 });
 
 router.post('/receipt-submissions', async (req, res) => {
-  const { memberId, fileId } = req.body || {};
+  const { memberId, fileId, note } = req.body || {};
   if (!memberId || !fileId) {
     return res.status(400).json({ message: 'memberId و fileId الزامی است.' });
   }
@@ -34,6 +34,7 @@ router.post('/receipt-submissions', async (req, res) => {
   if (!telegramBot) {
     return res.status(503).json({ message: 'ربات تلگرام غیرفعال است.' });
   }
+  const noteStr = (note != null && typeof note === 'string') ? String(note).trim() : '';
   try {
     const file = await telegramBot.getFile(fileId);
     const filePath = file.file_path;
@@ -69,6 +70,7 @@ router.post('/receipt-submissions', async (req, res) => {
       imagePath: 'receipts/' + destFileName,
       status: 'pending',
       createdAt: new Date().toISOString(),
+      ...(noteStr ? { note: noteStr } : {}),
     };
     db.receiptSubmissions.push(record);
     if (usePg) await persistDb(); else persistDb();
@@ -80,9 +82,12 @@ router.post('/receipt-submissions', async (req, res) => {
       const adminTpl = (telegramSettings.paymentAdminTemplate || '').trim();
       const memberName = (member.fullName || '').trim() || record.memberName || 'نامشخص';
       const ctxSubmit = { memberName, amount: 'در انتظار بررسی', date: '-' };
-      const textForAdmin = adminTpl
+      let textForAdmin = adminTpl
         ? formatTemplate(adminTpl, ctxSubmit)
         : `📩 رسید پرداخت جدید از «${memberName}» برای بررسی در پنل ثبت شد.`;
+      if (noteStr) {
+        textForAdmin += `\n\n📝 توضیحات / افراد تحت تکفل: ${noteStr}`;
+      }
       telegramBot.sendMessage(String(notifyTarget), textForAdmin).then(() => {
         console.log('[Telegram/چت-مدیر] اعلان ثبت رسید (در انتظار بررسی) به چت مدیر ارسال شد.');
       }).catch((err) => {

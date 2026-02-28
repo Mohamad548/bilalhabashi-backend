@@ -93,7 +93,8 @@ CREATE TABLE IF NOT EXISTS sanduq_bilal_habashi.receipt_submissions (
   created_at TIMESTAMPTZ,
   approved_at TIMESTAMPTZ,
   rejected_at TIMESTAMPTZ,
-  reject_message TEXT
+  reject_message TEXT,
+  note TEXT
 );
 
 -- ایندکس برای جستجوی سریع‌تر

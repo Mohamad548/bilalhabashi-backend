@@ -102,6 +102,7 @@ function rowToReceiptSubmission(r) {
     approvedAt: r.approved_at ? new Date(r.approved_at).toISOString() : undefined,
     rejectedAt: r.rejected_at ? new Date(r.rejected_at).toISOString() : undefined,
     rejectMessage: r.reject_message || undefined,
+    note: r.note || undefined,
   };
 }
 
@@ -285,8 +286,8 @@ async function saveToPg(db) {
     }
     for (const rs of receiptSubmissions) {
       await client.query(
-        `INSERT INTO ${SCHEMA}.receipt_submissions (id, member_id, member_name, image_path, status, created_at, approved_at, rejected_at, reject_message)
-         VALUES ($1, $2, $3, $4, $5, $6::timestamptz, $7::timestamptz, $8::timestamptz, $9)`,
+        `INSERT INTO ${SCHEMA}.receipt_submissions (id, member_id, member_name, image_path, status, created_at, approved_at, rejected_at, reject_message, note)
+         VALUES ($1, $2, $3, $4, $5, $6::timestamptz, $7::timestamptz, $8::timestamptz, $9, $10)`,
         [
           rs.id,
           rs.memberId,
@@ -297,6 +298,7 @@ async function saveToPg(db) {
           rs.approvedAt || null,
           rs.rejectedAt || null,
           rs.rejectMessage || null,
+          rs.note || null,
         ]
       );
     }

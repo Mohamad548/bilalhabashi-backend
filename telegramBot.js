@@ -198,6 +198,8 @@ const pendingLink = {};
 const pendingReceipt = {};
 // چت مدیر در انتظار علت رد درخواست وام: { [chatId]: { loanRequestId: string } }
 const pendingRejectReason = {};
+// پرداخت خانوادگی: مرحله ۱ رسید، مرحله ۲ توضیحات/اسامی. { [chatId]: { step: 'receipt'|'description', memberId, fileId? } }
+const pendingFamilyReceipt = {};
 
 function normalizeNationalId(text) {
   if (!text || typeof text !== 'string') return '';
@@ -279,14 +281,27 @@ https://t.me/mahmodi298`;
   console.log('[Telegram] /start از chatId=', chatId, '| برای اعلان در .env: TELEGRAM_NOTIFY_CHAT_ID=' + chatId);
 });
 
-// پیام عکس: رسید پرداخت شخصی
+// پیام عکس: رسید پرداخت شخصی یا مرحله اول پرداخت خانوادگی
 bot.on('photo', async (msg) => {
   const chatId = msg.chat.id;
-  const pending = pendingReceipt[chatId];
-  if (!pending) return;
   const photo = msg.photo;
   if (!photo || photo.length === 0) return;
   const fileId = photo[photo.length - 1].file_id;
+
+  const familyPending = pendingFamilyReceipt[chatId];
+  if (familyPending && familyPending.step === 'receipt') {
+    familyPending.step = 'description';
+    familyPending.fileId = fileId;
+    await bot.sendMessage(
+      chatId,
+      'لطفا توضیحات این رسید را وارد کنید و این مبلغ برای چه کسانی است.\nلطفا اسم کامل افراد تحت تکفل را وارد کنید.\n\nمثال: علی رضایی - عدنان فرجی',
+      { reply_markup: replyMenu }
+    );
+    return;
+  }
+
+  const pending = pendingReceipt[chatId];
+  if (!pending) return;
   try {
     const res = await apiPost('/api/receipt-submissions', {
       memberId: pending.memberId,
@@ -324,6 +339,32 @@ bot.on('message', async (msg) => {
       await bot.sendMessage(chatId, '✅ درخواست رد شد و پیام (به‌همراه علت رد) به کاربر ارسال شد.');
     } catch (e) {
       await bot.sendMessage(chatId, '❌ خطا در ثبت رد درخواست. لطفاً دوباره تلاش کنید.');
+    }
+    return;
+  }
+
+  const familyPending = pendingFamilyReceipt[chatId];
+  if (familyPending && familyPending.step === 'description' && familyPending.fileId) {
+    const note = text;
+    const { memberId, fileId } = familyPending;
+    delete pendingFamilyReceipt[chatId];
+    try {
+      const res = await apiPost('/api/receipt-submissions', {
+        memberId,
+        fileId,
+        note,
+      });
+      if (res && res.id != null) {
+        await bot.sendMessage(
+          chatId,
+          'واریزی خانوادگی شما (به‌همراه توضیحات) در حال بررسی توسط مدیر صندوق است. در صورت تایید اعلام خواهد شد.',
+          { reply_markup: replyMenu }
+        );
+      } else {
+        await bot.sendMessage(chatId, 'خطا در ثبت رسید. لطفاً دوباره تلاش کنید.', { reply_markup: replyMenu });
+      }
+    } catch (e) {
+      await bot.sendMessage(chatId, 'خطا در ارتباط با سرور. لطفاً بعداً تلاش کنید.', { reply_markup: replyMenu });
     }
     return;
   }
@@ -605,7 +646,18 @@ bot.on('callback_query', async (query) => {
   }
 
   if (data === 'payment_family') {
-    await bot.sendMessage(chatId, 'پرداخت خانوادگی در ادامه تکمیل می‌شود.', { reply_markup: replyMenu });
+    let member = null;
+    try {
+      const members = await apiGet('/api/members?telegramChatId=' + String(chatId));
+      const list = Array.isArray(members) ? members : members && members[0] ? [members] : [];
+      member = list.find((m) => String(m.telegramChatId) === String(chatId));
+    } catch (e) {}
+    if (!member) {
+      await bot.sendMessage(chatId, 'حساب شما یافت نشد. ابتدا با کد ملی حساب خود را متصل کنید.', { reply_markup: replyMenu });
+      return;
+    }
+    pendingFamilyReceipt[chatId] = { step: 'receipt', memberId: member.id };
+    await bot.sendMessage(chatId, 'رسید را بفرستید.', { reply_markup: replyMenu });
     return;
   }
   if (data === 'payment_personal') {
