@@ -4,7 +4,7 @@ const fs = require('fs');
 const https = require('https');
 const { db, persistDb, usePg, receiptsDir } = require('../config');
 const { getTelegramProxyUrl, createTelegramProxyAgent } = require('../lib/telegramProxy');
-const { formatNumTelegram } = require('../shamsiUtils');
+const { formatNumTelegram, formatShamsiForDisplay } = require('../shamsiUtils');
 
 let telegramBot = null;
 try {
@@ -227,7 +227,8 @@ router.post('/receipt-submissions/:id/approve', async (req, res) => {
     telegramSettings.receiptGroupTemplate ||
     '✅ پرداخت عضو «{memberName}» به مبلغ {amount} تومان در تاریخ {date} در سیستم ثبت شد.';
 
-  const ctx = { memberName, amount: amountFa, date: dateStr };
+  const dateDisplay = formatShamsiForDisplay(dateStr) || dateStr;
+  const ctx = { memberName, amount: amountFa, date: dateDisplay };
   const textForMember = formatTemplate(baseMemberTpl, ctx);
   const textForGroup = formatTemplate(baseGroupTpl, ctx);
 

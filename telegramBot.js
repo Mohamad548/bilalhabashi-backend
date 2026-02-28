@@ -8,6 +8,7 @@ const TelegramBot = require('node-telegram-bot-api');
 const { HttpsProxyAgent } = require('https-proxy-agent');
 const { SocksProxyAgent } = require('socks-proxy-agent');
 const http = require('http');
+const { formatShamsiForDisplay } = require('./shamsiUtils');
 
 const API_PORT = process.env.PORT || 3001;
 const API_BASE = `http://127.0.0.1:${API_PORT}`;
@@ -195,6 +196,8 @@ const MENU_TO_ACTION = {
 const pendingLink = {};
 // کاربرانی که در انتظار ارسال رسید (پرداخت شخصی) هستند: { [chatId]: { memberId: string } }
 const pendingReceipt = {};
+// چت مدیر در انتظار علت رد درخواست وام: { [chatId]: { loanRequestId: string } }
+const pendingRejectReason = {};
 
 function normalizeNationalId(text) {
   if (!text || typeof text !== 'string') return '';
@@ -304,11 +307,26 @@ bot.on('photo', async (msg) => {
   delete pendingReceipt[chatId];
 });
 
-// پیام متنی: دکمه منو یا کد ملی
+// پیام متنی: دکمه منو یا کد ملی (یا علت رد درخواست وام از مدیر)
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
   const text = msg.text && msg.text.trim();
   if (!text || msg.text.startsWith('/')) return;
+
+  const pendingReject = pendingRejectReason[chatId];
+  if (pendingReject && pendingReject.loanRequestId) {
+    const reason = text;
+    const id = pendingReject.loanRequestId;
+    delete pendingRejectReason[chatId];
+    try {
+      await apiPatch('/api/loanRequests/' + encodeURIComponent(id), { status: 'rejected', rejectReason: reason });
+      await apiPost('/api/loanRequests/' + encodeURIComponent(id) + '/notifyRejection', { reason });
+      await bot.sendMessage(chatId, '✅ درخواست رد شد و پیام (به‌همراه علت رد) به کاربر ارسال شد.');
+    } catch (e) {
+      await bot.sendMessage(chatId, '❌ خطا در ثبت رد درخواست. لطفاً دوباره تلاش کنید.');
+    }
+    return;
+  }
 
   const pending = pendingLink[chatId];
   if (!pending) {
@@ -379,7 +397,8 @@ bot.on('message', async (msg) => {
       }
       const lines = listPay.slice(0, 15).map((p) => {
         const type = p.type === 'contribution' ? 'واریز' : 'بازپرداخت';
-        return `${p.date || '-'}: ${type} ${formatNum(p.amount)} تومان`;
+        const dateDisplay = p.date ? formatShamsiForDisplay(String(p.date)) : '-';
+        return `${dateDisplay}: ${type} ${formatNum(p.amount)} تومان`;
       });
       await bot.sendMessage(chatId, 'آخرین پرداختی‌ها:\n\n' + lines.join('\n') + (listPay.length > 15 ? '\n\n...' : ''), { reply_markup: replyMenu });
       return;
@@ -470,7 +489,7 @@ async function runMenuAction(chatId, action, userName) {
     // در این مرحله، یا هیچ درخواستی وجود ندارد یا همه رد شده‌اند؛ اجازه ثبت درخواست جدید بده
     try {
       const memberUserName = String(userName || 'ناشناس');
-      await apiPost('/api/loanRequests', {
+      const createRes = await apiPost('/api/loanRequests', {
         telegramChatId: String(chatId),
         userName: memberUserName,
         status: 'pending',
@@ -481,10 +500,11 @@ async function runMenuAction(chatId, action, userName) {
         'درخواست ثبت وام شما ثبت شد. در پنل ادمین، منوی «درخواست‌ها» قابل مشاهده است.',
         withMenu({})
       );
-      // اعلان به چت مدیر اصلی (متن از تب «متن‌های ارسالی ادمین»)
+      const loanRequestId = createRes && createRes.id != null ? String(createRes.id) : '';
       apiPost('/api/telegram/notify-admin-new-loan-request', {
         telegramChatId: String(chatId),
         userName: memberUserName,
+        loanRequestId,
       }).catch((e) => console.error('[Telegram] خطا در فراخوانی اعلان به مدیر:', e.message));
     } catch (e) {
       await bot.sendMessage(chatId, 'خطا در ثبت درخواست. دوباره تلاش کنید.', withMenu({}));
@@ -529,7 +549,8 @@ async function runMenuAction(chatId, action, userName) {
       }
       const lines = list.slice(0, 15).map((p) => {
         const type = p.type === 'contribution' ? 'واریز' : 'بازپرداخت';
-        return `${p.date || '-'}: ${type} ${formatNum(p.amount)} تومان`;
+        const dateDisplay = p.date ? formatShamsiForDisplay(String(p.date)) : '-';
+        return `${dateDisplay}: ${type} ${formatNum(p.amount)} تومان`;
       });
       await bot.sendMessage(chatId, 'آخرین پرداختی‌ها:\n\n' + lines.join('\n') + (list.length > 15 ? '\n\n...' : ''), withMenu({}));
     }
@@ -546,6 +567,42 @@ bot.on('callback_query', async (query) => {
   } catch (e) {}
 
   if (!chatId) return;
+
+  if (data && data.startsWith('loan_approve_')) {
+    const id = data.replace(/^loan_approve_/, '');
+    if (!id) return;
+    await bot.sendMessage(chatId, 'آیا تأیید این درخواست وام را می‌کنید؟', {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: 'بله، تأیید', callback_data: 'loan_do_approve_' + id }],
+          [{ text: 'انصراف', callback_data: 'loan_cancel' }],
+        ],
+      },
+    });
+    return;
+  }
+  if (data && data.startsWith('loan_reject_')) {
+    const id = data.replace(/^loan_reject_/, '');
+    if (!id) return;
+    pendingRejectReason[chatId] = { loanRequestId: id };
+    await bot.sendMessage(chatId, 'علت رد درخواست را در یک پیام بنویسید تا به کاربر ارسال شود.');
+    return;
+  }
+  if (data && data.startsWith('loan_do_approve_')) {
+    const id = data.replace(/^loan_do_approve_/, '');
+    if (!id) return;
+    try {
+      await apiPatch('/api/loanRequests/' + encodeURIComponent(id), { status: 'approved' });
+      await apiPost('/api/loanRequests/' + encodeURIComponent(id) + '/notifyApproval');
+      await bot.sendMessage(chatId, '✅ درخواست وام تأیید شد و به کاربر اعلام شد.');
+    } catch (e) {
+      await bot.sendMessage(chatId, '❌ خطا در تأیید درخواست. لطفاً دوباره تلاش کنید.');
+    }
+    return;
+  }
+  if (data === 'loan_cancel') {
+    return;
+  }
 
   if (data === 'payment_family') {
     await bot.sendMessage(chatId, 'پرداخت خانوادگی در ادامه تکمیل می‌شود.', { reply_markup: replyMenu });

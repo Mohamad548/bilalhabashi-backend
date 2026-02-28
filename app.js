@@ -19,7 +19,7 @@ try {
   telegramBot = require('./telegramBot');
 } catch (e) {}
 
-const { formatNumTelegram } = require('./shamsiUtils');
+const { formatNumTelegram, formatShamsiForDisplay } = require('./shamsiUtils');
 
 function formatTemplate(tpl, ctx) {
   if (!tpl || typeof tpl !== 'string') return '';
@@ -102,10 +102,11 @@ app.post('/api/payments', async (req, res) => {
   if (telegramBot && uniqueTargets.length > 0 && sendManualPaymentGroup) {
     const memberName = (member.fullName || '').trim() || 'عضو بدون نام';
     const amountFa = formatNumTelegram(amount);
+    const dateDisplay = formatShamsiForDisplay(dateStr) || dateStr;
     const baseTpl =
       telegramSettings.manualPaymentGroupTemplate ||
       '✅ پرداخت عضو «{memberName}» به مبلغ {amount} تومان در تاریخ {date} در سیستم ثبت شد.';
-    const text = formatTemplate(baseTpl, { memberName, amount: amountFa, date: dateStr });
+    const text = formatTemplate(baseTpl, { memberName, amount: amountFa, date: dateDisplay });
     if (text) {
       try {
         for (const targetId of uniqueTargets) {
@@ -117,7 +118,7 @@ app.post('/api/payments', async (req, res) => {
         if (notifyTarget && telegramSettings.sendPaymentToAdmin !== false) {
           const adminTpl = (telegramSettings.paymentAdminTemplate || '').trim();
           const textForAdmin = adminTpl
-            ? formatTemplate(adminTpl, { memberName, amount: amountFa, date: dateStr })
+            ? formatTemplate(adminTpl, { memberName, amount: amountFa, date: dateDisplay })
             : text;
           console.log('[Telegram/چت-مدیر] ارسال اعلان پرداخت دستی به چت مدیر اصلی، target:', notifyTarget.length > 4 ? notifyTarget.slice(0, 2) + '...' + notifyTarget.slice(-2) : '***');
           await telegramBot.sendMessage(String(notifyTarget), textForAdmin)

@@ -108,10 +108,19 @@ function formatNumTelegram(n) {
   return grouped.replace(/\d/g, (d) => PERSIAN_DIGITS[d]);
 }
 
+/** نمایش تاریخ شمسی (YYYY-MM-DD) با اعداد فارسی و اسلش، مثلاً ۱۴۰۳/۰۸/۰۹ */
+function formatShamsiForDisplay(dateStr) {
+  if (!dateStr || typeof dateStr !== 'string') return '';
+  const s = dateStr.trim().replace(/-/g, '/');
+  return s.replace(/\d/g, (d) => PERSIAN_DIGITS[Number(d)] || d);
+}
+
 module.exports = {
   normalizeShamsi,
   addMonthsShamsi,
   todayShamsi,
   diffDaysShamsi,
+  gregorianToShamsi,
   formatNumTelegram,
+  formatShamsiForDisplay,
 };

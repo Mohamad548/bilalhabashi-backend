@@ -2,7 +2,7 @@ const express = require('express');
 const https = require('https');
 const { db, persistDb, usePg } = require('../config');
 const { getTelegramProxyUrl, createTelegramProxyAgent } = require('../lib/telegramProxy');
-const { formatNumTelegram } = require('../shamsiUtils');
+const { formatNumTelegram, gregorianToShamsi } = require('../shamsiUtils');
 
 let telegramBot = null;
 try {
@@ -181,14 +181,15 @@ router.post('/telegram/test-admin-chat', async (req, res) => {
   }
 });
 
-// اعلان به چت مدیر اصلی وقتی عضو از ربات درخواست وام ثبت کرد (فراخوانی از خود ربات بعد از POST /api/loanRequests)
+// اعلان به چت مدیر اصلی وقتی عضو از ربات درخواست وام ثبت کرد (با دکمه‌های تأیید/رد)
 router.post('/telegram/notify-admin-new-loan-request', async (req, res) => {
   const telegramChatId = req.body && req.body.telegramChatId != null ? String(req.body.telegramChatId).trim() : '';
   const userName = req.body && req.body.userName != null ? String(req.body.userName).trim() : 'ناشناس';
+  const loanRequestId = req.body && req.body.loanRequestId != null ? String(req.body.loanRequestId) : '';
   const userNameDisplay = userName.startsWith('@') ? userName : `@${userName}`;
   const chatId = String(telegramChatId || '');
 
-  console.log('[Telegram/چت-مدیر] notify-admin-new-loan-request فراخوانی شد؛ chatId=', chatId, ', userName=', userNameDisplay);
+  console.log('[Telegram/چت-مدیر] notify-admin-new-loan-request فراخوانی شد؛ chatId=', chatId, ', userName=', userNameDisplay, ', loanRequestId=', loanRequestId);
 
   const telegramSettings = db.telegramSettings || {};
   const notifyTarget = (telegramSettings.notifyTarget || '').trim();
@@ -214,8 +215,19 @@ router.post('/telegram/notify-admin-new-loan-request', async (req, res) => {
   }
 
   try {
-    await telegramBot.sendMessage(String(notifyTarget), textForAdmin);
-    console.log('[Telegram/چت-مدیر] ✓ اعلان درخواست وام به چت مدیر ارسال شد (از مسیر notify-admin-new-loan-request).');
+    const opts = {};
+    if (loanRequestId && loanRequestId.length <= 20) {
+      opts.reply_markup = {
+        inline_keyboard: [
+          [
+            { text: '✅ تأیید', callback_data: 'loan_approve_' + loanRequestId },
+            { text: '❌ رد', callback_data: 'loan_reject_' + loanRequestId },
+          ],
+        ],
+      };
+    }
+    await telegramBot.sendMessage(String(notifyTarget), textForAdmin, opts);
+    console.log('[Telegram/چت-مدیر] ✓ اعلان درخواست وام به چت مدیر ارسال شد (با دکمه‌های تأیید/رد).');
     return res.json({ success: true, sent: true });
   } catch (err) {
     console.error('[Telegram/چت-مدیر] ✗ خطا در ارسال اعلان به مدیر:', err.message);
@@ -284,12 +296,13 @@ router.post('/loanRequests/broadcastWaiting', async (req, res) => {
       members.find((m) => m.telegramChatId && String(m.telegramChatId) === String(r.telegramChatId)) || null;
     const baseName = member?.fullName || (r.userName ? `@${r.userName}` : `Chat ID: ${r.telegramChatId || 'نامشخص'}`);
     const created = r.createdAt ? new Date(r.createdAt) : null;
-    const createdDate =
+    const shamsiRaw =
       created && !isNaN(created.getTime())
-        ? `${created.getFullYear()}-${String(created.getMonth() + 1).padStart(2, '0')}-${String(
-            created.getDate()
-          ).padStart(2, '0')}`
-        : 'تاریخ نامشخص';
+        ? gregorianToShamsi(created)
+        : '';
+    const createdDate = shamsiRaw
+      ? shamsiRaw.replace(/-/g, '/').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d])
+      : 'تاریخ نامشخص';
 
     const indexFa = formatNumTelegram(idx + 1);
     if (lineTpl) {
