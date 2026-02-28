@@ -181,6 +181,45 @@ router.post('/telegram/test-admin-chat', async (req, res) => {
   }
 });
 
+// اعلان به چت مدیر اصلی وقتی عضو از ربات درخواست وام ثبت کرد (فراخوانی از خود ربات بعد از POST /api/loanRequests)
+router.post('/telegram/notify-admin-new-loan-request', async (req, res) => {
+  const telegramChatId = req.body && req.body.telegramChatId != null ? String(req.body.telegramChatId).trim() : '';
+  const userName = req.body && req.body.userName != null ? String(req.body.userName).trim() : 'ناشناس';
+  const userNameDisplay = userName.startsWith('@') ? userName : `@${userName}`;
+  const chatId = String(telegramChatId || '');
+
+  console.log('[Telegram/چت-مدیر] notify-admin-new-loan-request فراخوانی شد؛ chatId=', chatId, ', userName=', userNameDisplay);
+
+  const telegramSettings = db.telegramSettings || {};
+  const notifyTarget = (telegramSettings.notifyTarget || '').trim();
+  const sendToAdmin = notifyTarget && telegramSettings.sendLoanRequestToAdmin !== false;
+
+  if (!sendToAdmin) {
+    console.log('[Telegram/چت-مدیر] اعلان به مدیر ارسال نمی‌شود؛ notifyTarget=', notifyTarget ? 'تنظیم‌شده' : 'خالی', ', sendLoanRequestToAdmin=', telegramSettings.sendLoanRequestToAdmin);
+    return res.json({ success: true, sent: false });
+  }
+
+  const adminTpl = (telegramSettings.loanRequestAdminTemplate || '').trim();
+  const defaultAdminText = `📩 ${userNameDisplay} درخواست وام دارد.`;
+  const textForAdmin = adminTpl
+    ? adminTpl.replace(/\{userName\}/g, userNameDisplay).replace(/\{chatId\}/g, chatId)
+    : defaultAdminText;
+
+  if (!telegramBot) {
+    console.log('[Telegram/چت-مدیر] ربات تلگرام در دسترس نیست؛ اعلان ارسال نشد.');
+    return res.json({ success: true, sent: false });
+  }
+
+  try {
+    await telegramBot.sendMessage(String(notifyTarget), textForAdmin);
+    console.log('[Telegram/چت-مدیر] ✓ اعلان درخواست وام به چت مدیر ارسال شد (از مسیر notify-admin-new-loan-request).');
+    return res.json({ success: true, sent: true });
+  } catch (err) {
+    console.error('[Telegram/چت-مدیر] ✗ خطا در ارسال اعلان به مدیر:', err.message);
+    return res.status(500).json({ success: false, sent: false, error: err.message });
+  }
+});
+
 router.post('/loanRequests/:id/notifyRejection', (req, res) => {
   const id = req.params.id;
   const reason = (req.body && req.body.reason) ? String(req.body.reason).trim() : '';

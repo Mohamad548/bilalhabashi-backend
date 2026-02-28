@@ -469,9 +469,10 @@ async function runMenuAction(chatId, action, userName) {
 
     // در این مرحله، یا هیچ درخواستی وجود ندارد یا همه رد شده‌اند؛ اجازه ثبت درخواست جدید بده
     try {
+      const memberUserName = String(userName || 'ناشناس');
       await apiPost('/api/loanRequests', {
         telegramChatId: String(chatId),
-        userName: String(userName || 'ناشناس'),
+        userName: memberUserName,
         status: 'pending',
         createdAt: new Date().toISOString(),
       });
@@ -480,6 +481,11 @@ async function runMenuAction(chatId, action, userName) {
         'درخواست ثبت وام شما ثبت شد. در پنل ادمین، منوی «درخواست‌ها» قابل مشاهده است.',
         withMenu({})
       );
+      // اعلان به چت مدیر اصلی (متن از تب «متن‌های ارسالی ادمین»)
+      apiPost('/api/telegram/notify-admin-new-loan-request', {
+        telegramChatId: String(chatId),
+        userName: memberUserName,
+      }).catch((e) => console.error('[Telegram] خطا در فراخوانی اعلان به مدیر:', e.message));
     } catch (e) {
       await bot.sendMessage(chatId, 'خطا در ثبت درخواست. دوباره تلاش کنید.', withMenu({}));
     }
