@@ -117,13 +117,115 @@ router.post('/receipt-submissions/:id/approve', async (req, res) => {
   if (!member) {
     return res.status(404).json({ message: 'عضو یافت نشد.' });
   }
-  const amount = Number(req.body && req.body.amount);
   const dateStr = (req.body && req.body.date) ? String(req.body.date).trim() : '';
+  if (!dateStr) {
+    return res.status(400).json({ message: 'تاریخ پرداخت الزامی است.' });
+  }
+
+  const rawItems = req.body && Array.isArray(req.body.items) ? req.body.items : null;
+  const isFamilyPayment = rawItems && rawItems.length > 0;
+
+  if (isFamilyPayment) {
+    const payments = db.payments || [];
+    let payId = payments.length ? Math.max(...payments.map((p) => Number(p.id) || 0)) + 1 : 1;
+    const receiptImagePath = rec.imagePath || '';
+    let totalAmount = 0;
+    for (const it of rawItems) {
+      const itemMemberId = it.memberId != null ? String(it.memberId).trim() : '';
+      const itemAmount = Number(it.amount);
+      if (!itemMemberId || itemAmount <= 0) {
+        return res.status(400).json({ message: 'هر ردیف باید عضو و مبلغ معتبر داشته باشد.' });
+      }
+      const itemMember = db.members.find((m) => String(m.id) === itemMemberId);
+      if (!itemMember) {
+        return res.status(404).json({ message: `عضو با شناسه ${itemMemberId} یافت نشد.` });
+      }
+      const loanBal = itemMember.loanBalance || 0;
+      const deduct = Math.min(itemAmount, loanBal);
+      if (deduct > 0) {
+        db.payments.push({
+          id: payId++,
+          memberId: itemMemberId,
+          amount: deduct,
+          date: dateStr,
+          type: 'repayment',
+          note: 'واریز از طریق رسید تلگرام (پرداخت خانوادگی — تایید ادمین)',
+          createdAt: new Date().toISOString(),
+          receiptImagePath: receiptImagePath || undefined,
+        });
+        itemMember.loanBalance = Math.max(0, loanBal - deduct);
+      }
+      totalAmount += itemAmount;
+    }
+    rec.status = 'approved';
+    rec.approvedAt = new Date().toISOString();
+    if (usePg) await persistDb(); else persistDb();
+
+    const telegramSettings = db.telegramSettings || {};
+    const adminTargets = [
+      telegramSettings.adminChannelTarget,
+      telegramSettings.adminGroupTarget,
+      telegramSettings.adminTarget,
+      process.env.TELEGRAM_ADMIN_GROUP_ID,
+    ]
+      .filter(Boolean)
+      .map((s) => String(s).trim())
+      .filter(Boolean);
+    const uniqueTargets = [...new Set(adminTargets)];
+    const memberName = (member.fullName || '').trim() || rec.memberName || 'عضو بدون نام';
+    const amountFa = formatNumTelegram(totalAmount);
+    const baseMemberTpl =
+      telegramSettings.receiptMemberTemplate ||
+      'پرداخت شما به مبلغ {amount} تومان در تاریخ {date} در سیستم ثبت شد.';
+    const baseGroupTpl =
+      telegramSettings.receiptGroupTemplate ||
+      '✅ پرداخت عضو «{memberName}» به مبلغ {amount} تومان در تاریخ {date} در سیستم ثبت شد.';
+    const dateDisplay = formatShamsiForDisplay(dateStr) || dateStr;
+    const ctx = { memberName, amount: amountFa, date: dateDisplay };
+    const textForMember = formatTemplate(baseMemberTpl, ctx);
+    const textForGroup = formatTemplate(baseGroupTpl, ctx);
+    const sendReceiptMember = telegramSettings.sendReceiptMember !== false;
+    const sendReceiptGroup = telegramSettings.sendReceiptGroup !== false;
+    const notifyTarget = (telegramSettings.notifyTarget || '').trim();
+    const chatId = member.telegramChatId;
+    if (telegramBot) {
+      try {
+        if (chatId && sendReceiptMember && textForMember) {
+          await telegramBot.sendMessage(String(chatId), textForMember).catch((err) => {
+            console.error('[Telegram] خطا در ارسال پیام به عضو:', err.message);
+          });
+        }
+        if (sendReceiptGroup && textForGroup) {
+          for (const targetId of uniqueTargets) {
+            await telegramBot.sendMessage(String(targetId), textForGroup).catch((err) => {
+              console.error('[Telegram] خطا در ارسال پیام به کانال/گروه ادمین:', err.message);
+            });
+          }
+        }
+        if (notifyTarget && telegramSettings.sendPaymentToAdmin !== false) {
+          const adminTpl = (telegramSettings.paymentAdminTemplate || '').trim();
+          const textForAdmin = adminTpl
+            ? formatTemplate(adminTpl, ctx)
+            : (sendReceiptGroup && textForGroup ? textForGroup : sendReceiptMember && textForMember ? textForMember : null);
+          if (textForAdmin) {
+            await telegramBot.sendMessage(String(notifyTarget), textForAdmin).catch((err) => {
+              console.error('[Telegram/چت-مدیر] خطا در ارسال اعلان پرداخت به چت مدیر:', err.message);
+            });
+          }
+        }
+      } catch (e) {
+        console.error('[Telegram] خطا در ارسال پیام‌های تأیید رسید خانوادگی:', e.message);
+      }
+    }
+    return res.json({ success: true, message: 'تایید شد.' });
+  }
+
+  const amount = Number(req.body && req.body.amount);
   const typeRaw = req.body && req.body.type;
   const type = typeRaw === 'contribution_repayment' ? 'contribution_repayment' : (typeRaw === 'repayment' ? 'repayment' : 'contribution');
 
-  if (amount <= 0 || !dateStr) {
-    return res.status(400).json({ message: 'مبلغ و تاریخ پرداخت الزامی است.' });
+  if (amount <= 0) {
+    return res.status(400).json({ message: 'مبلغ پرداخت الزامی است.' });
   }
 
   const payments = db.payments || [];
