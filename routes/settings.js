@@ -24,6 +24,11 @@ router.get('/admin/telegram-settings', (req, res) => {
     broadcastWaitingLineTemplate: settings.broadcastWaitingLineTemplate || '',
     loanRequestAdminTemplate: settings.loanRequestAdminTemplate || '',
     paymentAdminTemplate: settings.paymentAdminTemplate || '',
+    reminderDaysBefore: Array.isArray(settings.reminderDaysBefore) ? settings.reminderDaysBefore : [7, 3, 1],
+    sendReminderToMember: settings.sendReminderToMember !== false,
+    sendOverdueListToAdmin: settings.sendOverdueListToAdmin === true,
+    sendOverdueListToGroup: settings.sendOverdueListToGroup === true,
+    sendOverdueListToMember: settings.sendOverdueListToMember === true,
   });
 });
 
@@ -60,6 +65,17 @@ router.post('/admin/telegram-settings', async (req, res) => {
   const paymentAdminTemplate =
     body.paymentAdminTemplate != null ? String(body.paymentAdminTemplate) : '';
 
+  const reminderDaysBefore = Array.isArray(body.reminderDaysBefore)
+    ? body.reminderDaysBefore.filter((d) => typeof d === 'number' && d >= 0).sort((a, b) => b - a)
+    : (body.reminderDaysBefore != null && typeof body.reminderDaysBefore === 'string'
+      ? body.reminderDaysBefore.split(/[,،\s]+/).map((s) => parseInt(s, 10)).filter((n) => !isNaN(n) && n >= 0).sort((a, b) => b - a)
+      : [7, 3, 1]);
+  const sendReminderToMember = body.sendReminderToMember !== false;
+  const sendOverdueListToAdmin = body.sendOverdueListToAdmin === true;
+  const sendOverdueListToGroup = body.sendOverdueListToGroup === true;
+  const sendOverdueListToMember = body.sendOverdueListToMember === true;
+
+  const overdueListLastSentDate = (db.telegramSettings && db.telegramSettings.overdueListLastSentDate) || '';
   db.telegramSettings = {
     adminTarget,
     adminChannelTarget,
@@ -78,6 +94,12 @@ router.post('/admin/telegram-settings', async (req, res) => {
     broadcastWaitingLineTemplate,
     loanRequestAdminTemplate,
     paymentAdminTemplate,
+    reminderDaysBefore: reminderDaysBefore.length ? reminderDaysBefore : [7, 3, 1],
+    sendReminderToMember,
+    sendOverdueListToAdmin,
+    sendOverdueListToGroup,
+    sendOverdueListToMember,
+    overdueListLastSentDate,
   };
 
   try {
@@ -107,6 +129,11 @@ router.post('/admin/telegram-settings', async (req, res) => {
       broadcastWaitingLineTemplate,
       loanRequestAdminTemplate,
       paymentAdminTemplate,
+      reminderDaysBefore: db.telegramSettings.reminderDaysBefore,
+      sendReminderToMember: db.telegramSettings.sendReminderToMember,
+      sendOverdueListToAdmin: db.telegramSettings.sendOverdueListToAdmin,
+      sendOverdueListToGroup: db.telegramSettings.sendOverdueListToGroup,
+      sendOverdueListToMember: db.telegramSettings.sendOverdueListToMember,
     });
   } catch (err) {
     console.error('[settings] خطا در ذخیره تنظیمات تلگرام:', err.message);

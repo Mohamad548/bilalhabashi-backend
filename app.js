@@ -100,7 +100,7 @@ app.post('/api/payments', async (req, res) => {
 
   const sendManualPaymentGroup = telegramSettings.sendManualPaymentGroup !== false;
   if (telegramBot && uniqueTargets.length > 0 && sendManualPaymentGroup) {
-    const memberName = member.fullName || 'عضو بدون نام';
+    const memberName = (member.fullName || '').trim() || 'عضو بدون نام';
     const amountFa = formatNumTelegram(amount);
     const baseTpl =
       telegramSettings.manualPaymentGroupTemplate ||

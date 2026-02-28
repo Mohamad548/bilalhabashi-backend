@@ -78,7 +78,7 @@ router.post('/receipt-submissions', async (req, res) => {
     const notifyTarget = (telegramSettings.notifyTarget || '').trim();
     if (telegramBot && notifyTarget && telegramSettings.sendPaymentToAdmin !== false) {
       const adminTpl = (telegramSettings.paymentAdminTemplate || '').trim();
-      const memberName = record.memberName || member.fullName || 'نامشخص';
+      const memberName = (member.fullName || '').trim() || record.memberName || 'نامشخص';
       const ctxSubmit = { memberName, amount: 'در انتظار بررسی', date: '-' };
       const textForAdmin = adminTpl
         ? formatTemplate(adminTpl, ctxSubmit)
@@ -217,7 +217,7 @@ router.post('/receipt-submissions/:id/approve', async (req, res) => {
     .filter(Boolean);
   const uniqueTargets = [...new Set(adminTargets)];
 
-  const memberName = rec.memberName || member.fullName || 'عضو بدون نام';
+  const memberName = (member.fullName || '').trim() || rec.memberName || 'عضو بدون نام';
   const amountFa = formatNumTelegram(amount);
 
   const baseMemberTpl =
