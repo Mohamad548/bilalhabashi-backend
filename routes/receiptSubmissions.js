@@ -72,6 +72,24 @@ router.post('/receipt-submissions', async (req, res) => {
     };
     db.receiptSubmissions.push(record);
     if (usePg) await persistDb(); else persistDb();
+
+    // اعلان به چت مدیر اصلی هنگام ثبت رسید (همزمان با پیام «واریزی شما در حال بررسی...» به عضو)
+    const telegramSettings = db.telegramSettings || {};
+    const notifyTarget = (telegramSettings.notifyTarget || '').trim();
+    if (telegramBot && notifyTarget && telegramSettings.sendPaymentToAdmin !== false) {
+      const adminTpl = (telegramSettings.paymentAdminTemplate || '').trim();
+      const memberName = record.memberName || member.fullName || 'نامشخص';
+      const ctxSubmit = { memberName, amount: 'در انتظار بررسی', date: '-' };
+      const textForAdmin = adminTpl
+        ? formatTemplate(adminTpl, ctxSubmit)
+        : `📩 رسید پرداخت جدید از «${memberName}» برای بررسی در پنل ثبت شد.`;
+      telegramBot.sendMessage(String(notifyTarget), textForAdmin).then(() => {
+        console.log('[Telegram/چت-مدیر] اعلان ثبت رسید (در انتظار بررسی) به چت مدیر ارسال شد.');
+      }).catch((err) => {
+        console.error('[Telegram/چت-مدیر] خطا در ارسال اعلان ثبت رسید به مدیر:', err.message);
+      });
+    }
+
     res.json(record);
   } catch (err) {
     console.error('[receipt-submissions] خطا:', err.message);

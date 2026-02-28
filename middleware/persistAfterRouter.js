@@ -39,11 +39,13 @@ function persistAfterRouter(req, res, next) {
         const telegramSettings = db.telegramSettings || {};
         const userName = body.userName ? `@${body.userName}` : 'ناشناس';
         const chatId = String(body.telegramChatId || '');
+        const member = (db.members || []).find((m) => m.telegramChatId && String(m.telegramChatId) === chatId);
+        const memberName = member ? (member.fullName || userName) : userName;
         const textForChannel = `📩 درخواست وام جدید از ${userName} (Chat ID: ${chatId}).`;
         const adminTpl = (telegramSettings.loanRequestAdminTemplate || '').trim();
-        const defaultAdminText = `📩 ${userName} درخواست وام دارد.`;
+        const defaultAdminText = `📩 ${memberName} درخواست وام دارد.`;
         const textForAdmin = adminTpl
-          ? adminTpl.replace(/\{userName\}/g, userName).replace(/\{chatId\}/g, chatId)
+          ? adminTpl.replace(/\{memberName\}/g, memberName).replace(/\{userName\}/g, userName).replace(/\{chatId\}/g, chatId)
           : defaultAdminText;
         const notifyTarget = (telegramSettings.notifyTarget || '').trim();
         const sendToAdmin = notifyTarget && telegramSettings.sendLoanRequestToAdmin !== false;

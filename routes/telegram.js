@@ -199,10 +199,13 @@ router.post('/telegram/notify-admin-new-loan-request', async (req, res) => {
     return res.json({ success: true, sent: false });
   }
 
+  const member = (db.members || []).find((m) => m.telegramChatId && String(m.telegramChatId) === chatId);
+  const memberName = member ? (member.fullName || userNameDisplay) : userNameDisplay;
+
   const adminTpl = (telegramSettings.loanRequestAdminTemplate || '').trim();
-  const defaultAdminText = `📩 ${userNameDisplay} درخواست وام دارد.`;
+  const defaultAdminText = `📩 ${memberName} درخواست وام دارد.`;
   const textForAdmin = adminTpl
-    ? adminTpl.replace(/\{userName\}/g, userNameDisplay).replace(/\{chatId\}/g, chatId)
+    ? adminTpl.replace(/\{memberName\}/g, memberName).replace(/\{userName\}/g, userNameDisplay).replace(/\{chatId\}/g, chatId)
     : defaultAdminText;
 
   if (!telegramBot) {
